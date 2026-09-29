@@ -102,9 +102,9 @@ export async function spamFilterRoutes(fastify: FastifyInstance) {
 
       // Rule 3: Disposable Email Domain Filter
       if (body.email && typeof body.email === 'string') {
-        const emailParts = body.email.split('@');
-        if (emailParts.length === 2) {
-          const domain = emailParts.toLowerCase();
+        const parts = body.email.split('@');
+        if (parts.length === 2) {
+          const domain = parts.toLowerCase();
           if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
             isSpam = true;
             spamReasons.push(`DISPOSABLE_EMAIL_DOMAIN (${domain})`);
