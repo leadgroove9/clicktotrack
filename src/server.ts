@@ -13,6 +13,7 @@ import { reportRoutes } from './routes/reports';
 import { rbacRoutes } from './routes/rbac';
 import { brandingRoutes } from './routes/branding';
 import { syntheticTesterRoutes } from './routes/synthetic';
+import { spamFilterRoutes } from './routes/spam';
 
 
 
@@ -42,6 +43,7 @@ server.register(reportRoutes);
 server.register(rbacRoutes);
 server.register(brandingRoutes);
 server.register(syntheticTesterRoutes);
+server.register(spamFilterRoutes);
 
 
 
