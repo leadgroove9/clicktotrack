@@ -10,6 +10,7 @@ import { anomalyMonitorRoutes } from './routes/anomaly';
 import { dashboardRoutes } from './routes/dashboard';
 import { s2sDispatcherRoutes } from './routes/s2s';
 import { reportRoutes } from './routes/reports';
+import { rbacRoutes } from './routes/rbac';
 
 
 
@@ -34,6 +35,7 @@ server.register(anomalyMonitorRoutes);
 server.register(dashboardRoutes);
 server.register(s2sDispatcherRoutes);
 server.register(reportRoutes);
+server.register(rbacRoutes);
 
 
 // Health check endpoint for DigitalOcean readiness probes
