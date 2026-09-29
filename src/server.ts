@@ -41,6 +41,8 @@ server.register(s2sDispatcherRoutes);
 server.register(reportRoutes);
 server.register(rbacRoutes);
 server.register(brandingRoutes);
+server.register(syntheticTesterRoutes);
+
 
 
 
