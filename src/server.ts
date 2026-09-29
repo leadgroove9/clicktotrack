@@ -7,6 +7,8 @@ import { paypalWebhookRoutes } from './routes/paypal';
 import { stripeWebhookRoutes } from './routes/stripe';
 import { whatsappWebhookRoutes } from './routes/whatsapp';
 import { anomalyMonitorRoutes } from './routes/anomaly';
+import { dashboardRoutes } from './routes/dashboard';
+
 
 // 1. Initialize Fastify server FIRST
 const server = Fastify({
@@ -26,6 +28,7 @@ server.register(paypalWebhookRoutes);
 server.register(stripeWebhookRoutes);
 server.register(whatsappWebhookRoutes);
 server.register(anomalyMonitorRoutes);
+server.register(dashboardRoutes);
 
 // Health check endpoint for DigitalOcean readiness probes
 server.get('/health', async (request, reply) => {
