@@ -19,6 +19,7 @@ import { itpRestorationRoutes } from './routes/itp';
 import { deduplicationRoutes } from './routes/dedup';
 import { ncaRoutes } from './routes/nca';
 import { goalRelocationRoutes } from './routes/relocation';
+import { dnsHealthRoutes } from './routes/dns-health';
 
 
 
@@ -56,6 +57,7 @@ server.register(itpRestorationRoutes);
 server.register(deduplicationRoutes);
 server.register(ncaRoutes);
 server.register(goalRelocationRoutes);
+server.register(dnsHealthRoutes);
 
 
 
