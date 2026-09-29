@@ -4,7 +4,6 @@ import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
-// Master ID Cookie & Click ID Backup Store
 interface MasterIdentityRecord {
   masterId: string;
   gclid?: string;
@@ -66,7 +65,7 @@ export async function itpRestorationRoutes(fastify: FastifyInstance) {
       const msclkid = query.msclkid;
       const ttclid = query.ttclid;
 
-      const existingMasterId = request.headers['x-master-id'] as string;
+      const existingMasterId = request.headers['x-master-id'] as string | undefined;
       const masterId = existingMasterId || `mst_${crypto.randomBytes(8).toString('hex')}`;
 
       const ninetyDaysInSeconds = 90 * 24 * 60 * 60; // 7,776,000 seconds
@@ -102,12 +101,13 @@ export async function itpRestorationRoutes(fastify: FastifyInstance) {
         `_ct_master_id=${masterId}; Max-Age=34560000; Path=/; HttpOnly; SameSite=Lax; Secure`
       );
 
+      const existingRecord = masterIdentityStore.get(masterId);
       const record: MasterIdentityRecord = {
         masterId,
-        gclid: gclid || masterIdentityStore.get(masterId)?.gclid,
-        fbclid: fbclid || masterIdentityStore.get(masterId)?.fbclid,
-        msclkid: msclkid || masterIdentityStore.get(masterId)?.msclkid,
-        ttclid: ttclid || masterIdentityStore.get(masterId)?.ttclid,
+        gclid: gclid || existingRecord?.gclid,
+        fbclid: fbclid || existingRecord?.fbclid,
+        msclkid: msclkid || existingRecord?.msclkid,
+        ttclid: ttclid || existingRecord?.ttclid,
         lastSeenAt: new Date().toISOString(),
       };
       masterIdentityStore.set(masterId, record);
@@ -154,17 +154,19 @@ export async function itpRestorationRoutes(fastify: FastifyInstance) {
       const cookies = incomingCookies || {};
       const activeMasterId = masterId || cookies['_ct_master_id'];
 
-      let restoredGclid = cookies['_ct_gclid'];
-      let restoredFbclid = cookies['_ct_fbclid'];
-      let restoredMsclkid = cookies['_ct_msclkid'];
-      let restoredTtclid = cookies['_ct_ttclid'];
+      let restoredGclid: string | undefined = cookies['_ct_gclid'];
+      let restoredFbclid: string | undefined = cookies['_ct_fbclid'];
+      let restoredMsclkid: string | undefined = cookies['_ct_msclkid'];
+      let restoredTtclid: string | undefined = cookies['_ct_ttclid'];
 
       if (activeMasterId && masterIdentityStore.has(activeMasterId)) {
-        const storedRecord = masterIdentityStore.get(activeMasterId)!;
-        if (!restoredGclid) restoredGclid = storedRecord.gclid;
-        if (!restoredFbclid) restoredFbclid = storedRecord.fbclid;
-        if (!restoredMsclkid) restoredMsclkid = storedRecord.msclkid;
-        if (!restoredTtclid) restoredTtclid = storedRecord.ttclid;
+        const storedRecord = masterIdentityStore.get(activeMasterId);
+        if (storedRecord) {
+          if (!restoredGclid) restoredGclid = storedRecord.gclid;
+          if (!restoredFbclid) restoredFbclid = storedRecord.fbclid;
+          if (!restoredMsclkid) restoredMsclkid = storedRecord.msclkid;
+          if (!restoredTtclid) restoredTtclid = storedRecord.ttclid;
+        }
       }
 
       const wasRestored = !!(restoredGclid || restoredFbclid || restoredMsclkid || restoredTtclid);
