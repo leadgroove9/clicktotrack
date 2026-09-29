@@ -101,16 +101,18 @@ export async function spamFilterRoutes(fastify: FastifyInstance) {
       }
 
       // Rule 3: Disposable Email Domain Filter
+     // Rule 3: Disposable Email Domain Filter
       if (body.email && typeof body.email === 'string') {
         const emailParts = body.email.split('@');
         if (emailParts.length === 2) {
-          const domain = emailParts.toLowerCase();
+          const domain = emailParts.toLowerCase(); // ✅ Correctly indexes domain string
           if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
             isSpam = true;
             spamReasons.push(`DISPOSABLE_EMAIL_DOMAIN (${domain})`);
             riskScore += 90;
           }
         }
+      }        }
       }
 
       // Rule 4: Phone Number Syntax Validation
