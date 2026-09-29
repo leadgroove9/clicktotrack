@@ -23,6 +23,7 @@ import { dnsHealthRoutes } from './routes/dns-health';
 import { landingDiscoveryRoutes } from './routes/landing-discovery';
 import { usageMeterRoutes } from './routes/usage-meter';
 import { superAdminRoutes } from './routes/super-admin';
+import { adrollRoutes } from './routes/adroll';
 
 
 
@@ -63,6 +64,7 @@ server.register(dnsHealthRoutes);
 server.register(landingDiscoveryRoutes);
 server.register(usageMeterRoutes);
 server.register(superAdminRoutes);
+server.register(adrollRoutes);
 
 
 
