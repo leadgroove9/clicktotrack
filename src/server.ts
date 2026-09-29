@@ -14,6 +14,7 @@ import { rbacRoutes } from './routes/rbac';
 import { brandingRoutes } from './routes/branding';
 import { syntheticTesterRoutes } from './routes/synthetic';
 import { spamFilterRoutes } from './routes/spam';
+import { enricherRoutes } from './routes/enricher';
 
 
 
@@ -44,6 +45,7 @@ server.register(rbacRoutes);
 server.register(brandingRoutes);
 server.register(syntheticTesterRoutes);
 server.register(spamFilterRoutes);
+server.register(enricherRoutes);
 
 
 
