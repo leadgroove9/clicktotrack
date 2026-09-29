@@ -17,6 +17,7 @@ import { spamFilterRoutes } from './routes/spam';
 import { enricherRoutes } from './routes/enricher';
 import { itpRestorationRoutes } from './routes/itp';
 import { deduplicationRoutes } from './routes/dedup';
+import { ncaRoutes } from './routes/nca';
 
 
 
@@ -51,7 +52,7 @@ server.register(spamFilterRoutes);
 server.register(enricherRoutes);
 server.register(itpRestorationRoutes);
 server.register(deduplicationRoutes);
-
+server.register(ncaRoutes);
 
 
 
