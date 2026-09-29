@@ -8,6 +8,8 @@ import { stripeWebhookRoutes } from './routes/stripe';
 import { whatsappWebhookRoutes } from './routes/whatsapp';
 import { anomalyMonitorRoutes } from './routes/anomaly';
 import { dashboardRoutes } from './routes/dashboard';
+import { s2sDispatcherRoutes } from './routes/s2s';
+
 
 
 // 1. Initialize Fastify server FIRST
@@ -29,6 +31,8 @@ server.register(stripeWebhookRoutes);
 server.register(whatsappWebhookRoutes);
 server.register(anomalyMonitorRoutes);
 server.register(dashboardRoutes);
+server.register(s2sDispatcherRoutes);
+
 
 // Health check endpoint for DigitalOcean readiness probes
 server.get('/health', async (request, reply) => {
