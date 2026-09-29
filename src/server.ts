@@ -18,6 +18,8 @@ import { enricherRoutes } from './routes/enricher';
 import { itpRestorationRoutes } from './routes/itp';
 import { deduplicationRoutes } from './routes/dedup';
 import { ncaRoutes } from './routes/nca';
+import { goalRelocationRoutes } from './routes/relocation';
+
 
 
 
@@ -53,6 +55,7 @@ server.register(enricherRoutes);
 server.register(itpRestorationRoutes);
 server.register(deduplicationRoutes);
 server.register(ncaRoutes);
+server.register(goalRelocationRoutes);
 
 
 
