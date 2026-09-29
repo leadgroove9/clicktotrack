@@ -58,14 +58,15 @@ export async function goalRelocationRoutes(fastify: FastifyInstance) {
 
       for (const goal of workspace.goals) {
         let isRelocated = false;
-        let updatedSelector = goal.targetSelector || '#contact-form';
+        const currentSelector = goal.selectorCss || goal.selectorXpath || '#contact-form';
+        let updatedSelector = currentSelector;
         let updatedUrl = workspace.domain ? `https://${workspace.domain}/thank-you` : 'https://example.com/thank-you';
 
-        if (goal.targetSelector?.includes('submit-btn-v1')) {
+        if (currentSelector.includes('submit-btn-v1')) {
           isRelocated = true;
           updatedSelector = '#submit-btn-v2';
           autoHealedCount++;
-        } else if (goal.eventName === 'purchase') {
+        } else if (goal.category === 'PURCHASE' || goal.category === 'SALE' || goal.title.toLowerCase().includes('purchase')) {
           isRelocated = true;
           updatedUrl = `https://${workspace.domain || 'example.com'}/order-confirmed`;
           autoHealedCount++;
@@ -73,8 +74,8 @@ export async function goalRelocationRoutes(fastify: FastifyInstance) {
 
         const record: GoalRelocationRecord = {
           goalId: goal.id,
-          goalTitle: goal.goalTitle || goal.eventName,
-          originalSelector: goal.targetSelector || '#contact-form',
+          goalTitle: goal.title,
+          originalSelector: currentSelector,
           updatedSelector,
           originalUrl: `https://${workspace.domain || 'example.com'}/thank-you`,
           updatedUrl,
@@ -83,9 +84,9 @@ export async function goalRelocationRoutes(fastify: FastifyInstance) {
         };
 
         if (isRelocated) {
-          await prisma.conversionGoal.update({
+          await prisma.goal.update({
             where: { id: goal.id },
-            data: { targetSelector: updatedSelector },
+            data: { selectorCss: updatedSelector },
           });
         }
 
@@ -178,7 +179,7 @@ export async function goalRelocationRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Missing required parameter: goalId' });
       }
 
-      const goal = await prisma.conversionGoal.findUnique({
+      const goal = await prisma.goal.findUnique({
         where: { id: goalId },
       });
 
@@ -186,21 +187,21 @@ export async function goalRelocationRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: `Goal with ID '${goalId}' not found` });
       }
 
-      const updated = await prisma.conversionGoal.update({
+      const updated = await prisma.goal.update({
         where: { id: goalId },
-        data: { targetSelector: newTargetSelector || '#auto-healed-selector' },
+        data: { selectorCss: newTargetSelector || '#auto-healed-selector' },
       });
 
-      fastify.log.info(`[Self-Healing Engine] Manually healed goal ${goalId} -> Selector: ${updated.targetSelector}`);
+      fastify.log.info(`[Self-Healing Engine] Manually healed goal ${goalId} -> Selector: ${updated.selectorCss}`);
 
       return reply.status(200).send({
         success: true,
         message: `Goal '${goalId}' successfully updated in Master Goal Registry`,
         goal: {
           id: updated.id,
-          goalTitle: updated.goalTitle,
-          previousSelector: goal.targetSelector,
-          newSelector: updated.targetSelector,
+          goalTitle: updated.title,
+          previousSelector: goal.selectorCss || goal.selectorXpath,
+          newSelector: updated.selectorCss,
           updatedAt: new Date().toISOString(),
         },
       });
