@@ -75,17 +75,23 @@ export async function whatsappWebhookRoutes(fastify: FastifyInstance) {
       reply.status(200).send({ status: 'EVENT_RECEIVED' });
 
       // Process payload asynchronously
-      const entry = body.entry?.;
-      const change = entry?.changes?.;
-      const value = change?.value;
-      const message = value?.messages?.;
+      const entry = body.entry && body.entry ? body.entry : null;
+      const change = entry && entry.changes && entry.changes ? entry.changes : null;
+      const value = change ? change.value : null;
+      const message = value && value.messages && value.messages ? value.messages : null;
 
-      if (!message) return;
+      if (!message) {
+        // Status update (e.g. read receipt) - ignore for conversion logging
+        return;
+      }
 
-      const rawPhone = message.from;
+      const rawPhone = message.from; // e.g. "15550192834"
       const wamid = message.id || `wamid_${Date.now()}`;
-      const contactName = value.contacts?.?.profile?.name || 'WhatsApp User';
+      const contactName = (value.contacts && value.contacts && value.contacts.profile)
+        ? value.contacts.profile.name
+        : 'WhatsApp User';
 
+      // 1. Verify workspace exists
       const workspace = await prisma.workspace.findUnique({
         where: { siteId },
       });
@@ -95,16 +101,19 @@ export async function whatsappWebhookRoutes(fastify: FastifyInstance) {
         return;
       }
 
+      // 2. Normalize and SHA-256 Hash Phone Number
       const formattedPhone = rawPhone.startsWith('+') ? rawPhone : `+${rawPhone}`;
       const phoneHash = hashPII(formattedPhone, 'phone');
 
+      // 3. Generate unique event ID for deduplication
       const eventId = `evt_wa_${wamid}`;
 
+      // 4. Queue WhatsApp Conversation Event in PostgreSQL Queue
       const conversion = await prisma.conversionEvent.create({
         data: {
           workspaceId: workspace.id,
           eventId,
-          eventName: 'contact',
+          eventName: 'contact', // Maps to Meta CAPI Contact / Google Ads SUBMIT_LEAD_FORM / GA4 generate_lead
           phoneHash,
           status: 'QUEUED',
         },
