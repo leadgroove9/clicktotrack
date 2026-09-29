@@ -21,6 +21,7 @@ import { ncaRoutes } from './routes/nca';
 import { goalRelocationRoutes } from './routes/relocation';
 import { dnsHealthRoutes } from './routes/dns-health';
 import { landingDiscoveryRoutes } from './routes/landing-discovery';
+import { usageMeterRoutes } from './routes/usage-meter';
 
 
 
@@ -60,6 +61,7 @@ server.register(ncaRoutes);
 server.register(goalRelocationRoutes);
 server.register(dnsHealthRoutes);
 server.register(landingDiscoveryRoutes);
+server.register(usageMeterRoutes);
 
 
 
