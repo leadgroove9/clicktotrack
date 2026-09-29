@@ -9,6 +9,7 @@ import { whatsappWebhookRoutes } from './routes/whatsapp';
 import { anomalyMonitorRoutes } from './routes/anomaly';
 import { dashboardRoutes } from './routes/dashboard';
 import { s2sDispatcherRoutes } from './routes/s2s';
+import { reportRoutes } from './routes/reports';
 
 
 
@@ -32,6 +33,7 @@ server.register(whatsappWebhookRoutes);
 server.register(anomalyMonitorRoutes);
 server.register(dashboardRoutes);
 server.register(s2sDispatcherRoutes);
+server.register(reportRoutes);
 
 
 // Health check endpoint for DigitalOcean readiness probes
