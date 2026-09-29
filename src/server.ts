@@ -12,6 +12,8 @@ import { s2sDispatcherRoutes } from './routes/s2s';
 import { reportRoutes } from './routes/reports';
 import { rbacRoutes } from './routes/rbac';
 import { brandingRoutes } from './routes/branding';
+import { syntheticTesterRoutes } from './routes/synthetic';
+
 
 
 
@@ -41,9 +43,10 @@ server.register(rbacRoutes);
 server.register(brandingRoutes);
 
 
+
 // Health check endpoint for DigitalOcean readiness probes
 server.get('/health', async (request, reply) => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
+  return { status: 'ok', timestamp: new Date().toISOString() };server.register(syntheticTesterRoutes);
 });
 
 // Root endpoint
