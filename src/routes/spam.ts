@@ -4,7 +4,7 @@ import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
-// List of common disposable/temporary email domains
+// Common disposable/temporary email provider domains
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
   'mailinator.com',
   'tempmail.com',
@@ -29,8 +29,8 @@ interface SpamEvaluateBody {
   email?: string;
   phone?: string;
   message?: string;
-  submissionDurationMs?: number; // Time user spent filling form
-  _ct_hp?: string; // Client-side invisible honeypot field
+  submissionDurationMs?: number;
+  _ct_hp?: string;
   userIp?: string;
   gclid?: string;
   fbclid?: string;
@@ -63,7 +63,7 @@ function hashPII(value?: string, type: 'email' | 'phone' = 'email'): string | un
 }
 
 export async function spamFilterRoutes(fastify: FastifyInstance) {
-  // 1. Evaluate Incoming Lead Submission Against Bot & Spam Rules (POST)
+  // 1. Evaluate Incoming Lead Submission (POST)
   fastify.post('/api/v1/spam/evaluate/:siteId?', async (
     request: FastifyRequest<{ Params: SpamRouteParams; Body: SpamEvaluateBody }>,
     reply: FastifyReply
@@ -83,9 +83,9 @@ export async function spamFilterRoutes(fastify: FastifyInstance) {
 
       let isSpam = false;
       const spamReasons: string[] = [];
-      let riskScore = 0; // 0 to 100
+      let riskScore = 0;
 
-      // Rule 1: Client-Side Invisible Honeypot Field Check
+      // Rule 1: Invisible Honeypot Field Check
       if (body._ct_hp && body._ct_hp.trim().length > 0) {
         isSpam = true;
         spamReasons.push('HONEYPOT_FIELD_FILLED');
@@ -101,18 +101,16 @@ export async function spamFilterRoutes(fastify: FastifyInstance) {
       }
 
       // Rule 3: Disposable Email Domain Filter
-     // Rule 3: Disposable Email Domain Filter
       if (body.email && typeof body.email === 'string') {
         const emailParts = body.email.split('@');
         if (emailParts.length === 2) {
-          const domain = emailParts.toLowerCase(); // ✅ Correctly indexes domain string
+          const domain = emailParts.toLowerCase();
           if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) {
             isSpam = true;
             spamReasons.push(`DISPOSABLE_EMAIL_DOMAIN (${domain})`);
             riskScore += 90;
           }
         }
-      }        }
       }
 
       // Rule 4: Phone Number Syntax Validation
@@ -130,7 +128,6 @@ export async function spamFilterRoutes(fastify: FastifyInstance) {
       const phoneHash = hashPII(body.phone, 'phone');
       const finalStatus = isSpam ? 'SPAM_SUPPRESSED' : 'QUEUED';
 
-      // Save event to PostgreSQL database
       const conversion = await prisma.conversionEvent.create({
         data: {
           workspaceId: workspace.id,
@@ -166,7 +163,7 @@ export async function spamFilterRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // 2. Fetch Spam & Bot Lead Quarantine Dashboard (GET)
+  // 2. Fetch Spam Quarantine Dashboard (GET)
   fastify.get('/api/v1/spam/quarantine/:siteId?', async (
     request: FastifyRequest<{ Params: SpamRouteParams }>,
     reply: FastifyReply
@@ -212,7 +209,7 @@ export async function spamFilterRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // 3. Manually Release Quarantined Lead (False Positive Approval) (POST)
+  // 3. Manually Release Quarantined Lead (POST)
   fastify.post('/api/v1/spam/release/:eventId', async (
     request: FastifyRequest<{ Params: SpamRouteParams }>,
     reply: FastifyReply
@@ -232,7 +229,6 @@ export async function spamFilterRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: `Conversion event '${eventId}' not found` });
       }
 
-      // Update status to QUEUED
       const updated = await prisma.conversionEvent.update({
         where: { eventId },
         data: { status: 'QUEUED' },
