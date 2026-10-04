@@ -13,12 +13,11 @@ interface CreateWorkspaceBody {
   msUetId?: string;
   callProvider?: string;
   accountMode?: string;
-  installMethod?: string;
-  callRailAccId?: string;
-  callRailApiKey?: string;
+  callrailAccId?: string;
+  callrailApiKey?: string;
   ctmAccId?: string;
-  ctmKey?: string;
-  ctmSecret?: string;
+  ctmApiKey?: string;
+  installMethod?: string;
 }
 
 export async function workspaceRoutes(fastify: FastifyInstance) {
@@ -63,12 +62,11 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
         msUetId,
         callProvider,
         accountMode,
-        installMethod,
-        callRailAccId,
-        callRailApiKey,
+        callrailAccId,
+        callrailApiKey,
         ctmAccId,
-        ctmKey,
-        ctmSecret,
+        ctmApiKey,
+        installMethod,
       } = request.body || {};
 
       if (!domain) {
@@ -118,12 +116,11 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
           msUetId,
           callProvider,
           accountMode,
-          installMethod,
-          callRailAccId,
-          callRailApiKey,
+          callrailAccId,
+          callrailApiKey,
           ctmAccId,
-          ctmKey,
-          ctmSecret,
+          ctmApiKey,
+          installMethod,
         },
       });
     } catch (error: any) {

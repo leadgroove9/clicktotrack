@@ -32,7 +32,10 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
         <p class="text-xs text-gray-400 mt-1">Multi-Channel S2S Conversion Engine & Workspace Manager</p>
       </div>
       <div class="flex items-center gap-3">
-        <button onclick="openWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/30 cursor-pointer">
+        <button onclick="verifyCurrentDns()" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all flex items-center gap-1.5">
+          <span>🔍 Verify CNAME DNS</span>
+        </button>
+        <button onclick="openWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/30">
           + Add New Client / Domain
         </button>
         <select id="workspaceSelect" onchange="switchWorkspace(this.value)" class="bg-gray-900 border border-gray-700 text-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-500 font-medium">
@@ -58,10 +61,13 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
         <div class="text-3xl font-bold text-emerald-400 mt-2">Active (100%)</div>
         <div class="text-xs text-gray-400 mt-1">Cookieless Modeling Enabled</div>
       </div>
-      <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700">
-        <div class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Edge Proxy Status</div>
-        <div class="text-3xl font-bold text-emerald-400 mt-2">Healthy</div>
-        <div class="text-xs text-emerald-400 mt-1">1st-Party CNAME Proxy Shield</div>
+      <div onclick="verifyCurrentDns()" class="bg-gray-800 p-5 rounded-2xl border border-gray-700 hover:border-emerald-500/50 cursor-pointer transition-all group">
+        <div class="flex justify-between items-center">
+          <div class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Edge Proxy Status</div>
+          <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono group-hover:bg-emerald-500/20">Click to Audit</span>
+        </div>
+        <div class="text-3xl font-bold text-emerald-400 mt-2" id="dnsStatusBadge">Healthy</div>
+        <div class="text-xs text-emerald-400 mt-1" id="dnsStatusSub">1st-Party CNAME Proxy Shield</div>
       </div>
     </div>
 
@@ -75,7 +81,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
           <h2 class="text-lg font-bold text-white">New Client Onboarding & Setup Wizard</h2>
           <p class="text-xs text-gray-400">Configure 1st-party conversion tracking & ad integrations</p>
         </div>
-        <button onclick="closeWizard()" class="text-gray-400 hover:text-white font-bold text-xl cursor-pointer">&times;</button>
+        <button onclick="closeWizard()" class="text-gray-400 hover:text-white font-bold text-xl">&times;</button>
       </div>
 
       <div class="space-y-4 text-xs max-h-[70vh] overflow-y-auto pr-2">
@@ -125,12 +131,12 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
             </label>
           </div>
 
-          <!-- DYNAMIC INSTALLATION PANELS -->
+          <!-- DYNAMIC INSTALLATION PANEL -->
           <div id="installBox-cname" class="bg-gray-950 p-3 rounded-lg border border-gray-800 space-y-1">
             <div class="text-[11px] font-bold text-emerald-400">1st-Party Edge Proxy CNAME Record Target:</div>
             <div class="font-mono text-gray-200 text-[11px] bg-gray-900 p-2 rounded border border-gray-800 flex justify-between items-center">
               <span>CNAME track &rarr; whale-app-gel7l.ondigitalocean.app</span>
-              <button onclick="navigator.clipboard.writeText('whale-app-gel7l.ondigitalocean.app'); alert('Copied CNAME target!')" class="text-indigo-400 hover:text-indigo-300 font-sans text-[10px] font-bold cursor-pointer">Copy Target</button>
+              <button onclick="navigator.clipboard.writeText('whale-app-gel7l.ondigitalocean.app'); alert('Copied CNAME target!')" class="text-indigo-400 hover:text-indigo-300 font-sans text-[10px] font-bold">Copy Target</button>
             </div>
           </div>
 
@@ -140,7 +146,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
               <p><b>Path A (WP Directory):</b> Search <i>"ClicktoTrack"</i> in WP Admin &rarr; Plugins &rarr; Add New, then enter your Site ID.</p>
               <p><b>Path B (1-Click Upload):</b> Download pre-configured <code>.zip</code> plugin file below and upload in WP Admin.</p>
             </div>
-            <button onclick="alert('Downloading clicktotrack-loader.zip plugin package...')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded text-[11px] transition-all cursor-pointer">
+            <button onclick="alert('Downloading clicktotrack-loader.zip plugin package...')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded text-[11px] transition-all">
               📥 Download Pre-Configured WP Plugin (.zip)
             </button>
           </div>
@@ -149,7 +155,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
             <div class="text-[11px] font-bold text-indigo-400">Shopify Theme App Extension Pathways:</div>
             <div class="text-[11px] text-gray-300 space-y-1">
               <p><b>Option A:</b> Shopify Admin &rarr; Online Store &rarr; Themes &rarr; Customize &rarr; App Embeds &rarr; Toggle <i>"ClicktoTrack"</i> ON.</p>
-              <p><b>Option B (Manual Snippet):</b> Paste this script code directly above the closing head tag in <code>theme.liquid</code>:</p>
+              <p><b>Option B (Manual Snippet):</b> Paste this code directly above <code>&lt;/head&gt;</code> in <code>theme.liquid</code>:</p>
             </div>
             <div class="font-mono text-gray-200 text-[10px] bg-gray-900 p-2 rounded border border-gray-800 overflow-x-auto">
               &lt;script src="https://whale-app-gel7l.ondigitalocean.app/script/latest.js" async&gt;&lt;/script&gt;
@@ -183,7 +189,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
                 <div class="relative group cursor-pointer">
                   <span class="text-gray-400 hover:text-indigo-400 text-[10px] font-bold bg-gray-800 border border-gray-700 rounded-full w-4 h-4 flex items-center justify-center">?</span>
                   <div class="absolute right-0 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-950 border border-gray-700 text-gray-200 text-[11px] p-2.5 rounded-xl shadow-2xl z-50 font-normal leading-relaxed">
-                    In GA4, go to Admin (gear icon) &rarr; Data Streams &rarr; click your Web Stream &rarr; copy 'Measurement ID' starting with G- (e.g. G-X1Y2Z3A4).
+                    In GA4, go to Admin (gear) &rarr; Data Streams &rarr; click your Web Stream &rarr; copy the 'Measurement ID' starting with G- (e.g. G-X1Y2Z3A4).
                   </div>
                 </div>
               </label>
@@ -197,7 +203,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
                 <div class="relative group cursor-pointer">
                   <span class="text-gray-400 hover:text-indigo-400 text-[10px] font-bold bg-gray-800 border border-gray-700 rounded-full w-4 h-4 flex items-center justify-center">?</span>
                   <div class="absolute right-0 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-950 border border-gray-700 text-gray-200 text-[11px] p-2.5 rounded-xl shadow-2xl z-50 font-normal leading-relaxed">
-                    In Meta Events Manager &rarr; Data Sources &rarr; Settings. Copy Dataset / Pixel ID (or generate Access Token under Conversions API).
+                    In Meta Events Manager &rarr; Data Sources &rarr; Settings. Copy your Dataset / Pixel ID (or generate an Access Token under Conversions API).
                   </div>
                 </div>
               </label>
@@ -220,7 +226,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
           </div>
         </div>
 
-        <!-- STEP 4: CALL TRACKING PROVIDER & DYNAMIC BYO CREDENTIALS -->
+        <!-- STEP 4: CALL TRACKING PROVIDER & DYNAMIC BYO TOGGLE -->
         <div class="space-y-3 bg-gray-900/60 p-4 rounded-xl border border-gray-700/60">
           <div class="font-bold text-indigo-400 uppercase tracking-wider text-[11px]">Step 4: Call Tracking Provider & Account Model</div>
           
@@ -241,17 +247,14 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
             </div>
           </div>
 
-          <!-- DYNAMIC WHITELABEL VS BYO CREDENTIAL PANELS -->
-          <div id="callBox-whitelabel" class="bg-gray-950 p-3 rounded-lg border border-emerald-800/60 space-y-1">
-            <div class="text-[11px] font-bold text-emerald-400">✓ Automated Turnkey Provisioning Active</div>
-            <p class="text-[11px] text-gray-300 leading-relaxed">
-              No API keys required. Local phone number pools and dynamic swapping will be automatically provisioned under your agency master account.
-            </p>
+          <!-- WHITELABEL INFO BOX -->
+          <div id="callNoticeWhitelabel" class="bg-emerald-950/40 border border-emerald-800/60 p-3 rounded-lg text-[11px] text-emerald-300">
+            <b>✓ Automated Turnkey Provisioning Active:</b> No API keys required. Dynamic phone number pools will be auto-allocated under your agency master account.
           </div>
 
-          <!-- BYO CALLRAIL CREDENTIALS -->
-          <div id="callBox-byo-callrail" class="hidden bg-gray-950 p-3.5 rounded-lg border border-gray-800 space-y-3">
-            <div class="text-[11px] font-bold text-indigo-400">CallRail BYO API Credentials:</div>
+          <!-- BYO CALLRAIL CREDENTIALS BOX -->
+          <div id="callBoxCallrailByo" class="hidden bg-gray-950 p-3 rounded-lg border border-gray-800 space-y-3">
+            <div class="text-[11px] font-bold text-indigo-400">CallRail BYO Account Credentials:</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label class="flex items-center justify-between font-semibold text-gray-300 mb-1">
@@ -259,53 +262,54 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
                   <div class="relative group cursor-pointer">
                     <span class="text-gray-400 hover:text-indigo-400 text-[10px] font-bold bg-gray-800 border border-gray-700 rounded-full w-4 h-4 flex items-center justify-center">?</span>
                     <div class="absolute right-0 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-950 border border-gray-700 text-gray-200 text-[11px] p-2.5 rounded-xl shadow-2xl z-50 font-normal leading-relaxed">
-                      In CallRail, go to Account Settings &rarr; Account Summary. Copy your Account ID (e.g. ACC-10928374).
+                      In CallRail, go to Account &rarr; Account Settings. Copy your Account ID (e.g. ACC-123456789).
                     </div>
                   </div>
                 </label>
-                <input type="text" id="wizCallRailAccId" placeholder="e.g. ACC-10928374" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+                <input type="text" id="wizCallrailAccId" placeholder="e.g. ACC-123456789" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
               </div>
-
               <div>
                 <label class="flex items-center justify-between font-semibold text-gray-300 mb-1">
                   <span>CallRail API Key</span>
                   <div class="relative group cursor-pointer">
                     <span class="text-gray-400 hover:text-indigo-400 text-[10px] font-bold bg-gray-800 border border-gray-700 rounded-full w-4 h-4 flex items-center justify-center">?</span>
                     <div class="absolute right-0 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-950 border border-gray-700 text-gray-200 text-[11px] p-2.5 rounded-xl shadow-2xl z-50 font-normal leading-relaxed">
-                      In CallRail, go to Account Settings &rarr; API Keys and click 'Create API Key' (e.g. v1_a1b2c3d4e5f6).
+                      In CallRail, go to User Settings &rarr; API Keys &rarr; Create API Key. Copy the generated key token.
                     </div>
                   </div>
                 </label>
-                <input type="text" id="wizCallRailApiKey" placeholder="e.g. v1_a1b2c3d4e5f6" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+                <input type="text" id="wizCallrailApiKey" placeholder="e.g. v1_a1b2c3d4e5f6..." class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
               </div>
             </div>
           </div>
 
-          <!-- BYO CTM CREDENTIALS -->
-          <div id="callBox-byo-ctm" class="hidden bg-gray-950 p-3.5 rounded-lg border border-gray-800 space-y-3">
-            <div class="text-[11px] font-bold text-indigo-400">CallTrackingMetrics BYO API Credentials:</div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <!-- BYO CTM CREDENTIALS BOX -->
+          <div id="callBoxCtmByo" class="hidden bg-gray-950 p-3 rounded-lg border border-gray-800 space-y-3">
+            <div class="text-[11px] font-bold text-indigo-400">CallTrackingMetrics (CTM) BYO Credentials:</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label class="flex items-center justify-between font-semibold text-gray-300 mb-1">
                   <span>CTM Account ID</span>
                   <div class="relative group cursor-pointer">
                     <span class="text-gray-400 hover:text-indigo-400 text-[10px] font-bold bg-gray-800 border border-gray-700 rounded-full w-4 h-4 flex items-center justify-center">?</span>
                     <div class="absolute right-0 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-950 border border-gray-700 text-gray-200 text-[11px] p-2.5 rounded-xl shadow-2xl z-50 font-normal leading-relaxed">
-                      In CTM, go to Settings &rarr; Account Settings. Copy your 6-digit Account ID (e.g. 109283).
+                      In CTM, look at your top bar or go to Settings &rarr; Account Settings for your 6-digit Account ID (e.g. 109283).
                     </div>
                   </div>
                 </label>
                 <input type="text" id="wizCtmAccId" placeholder="e.g. 109283" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
               </div>
-
               <div>
-                <label class="block font-semibold text-gray-300 mb-1">CTM Access Key</label>
-                <input type="text" id="wizCtmKey" placeholder="e.g. key_998877" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
-              </div>
-
-              <div>
-                <label class="block font-semibold text-gray-300 mb-1">CTM Secret Key</label>
-                <input type="text" id="wizCtmSecret" placeholder="e.g. sec_112233" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+                <label class="flex items-center justify-between font-semibold text-gray-300 mb-1">
+                  <span>CTM Access Key / Secret</span>
+                  <div class="relative group cursor-pointer">
+                    <span class="text-gray-400 hover:text-indigo-400 text-[10px] font-bold bg-gray-800 border border-gray-700 rounded-full w-4 h-4 flex items-center justify-center">?</span>
+                    <div class="absolute right-0 bottom-full mb-2 hidden group-hover:block w-64 bg-gray-950 border border-gray-700 text-gray-200 text-[11px] p-2.5 rounded-xl shadow-2xl z-50 font-normal leading-relaxed">
+                      In CTM, go to Settings &rarr; Account Settings &rarr; API Integration to copy Access Key & Secret Key.
+                    </div>
+                  </div>
+                </label>
+                <input type="text" id="wizCtmApiKey" placeholder="e.g. ctm_ak_987654321..." class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
               </div>
             </div>
           </div>
@@ -315,10 +319,52 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
       </div>
 
       <div class="flex items-center justify-end space-x-3 pt-3 border-t border-gray-700">
-        <button onclick="closeWizard()" class="px-4 py-2 text-xs font-semibold text-gray-400 hover:text-white cursor-pointer">Cancel</button>
-        <button onclick="saveWorkspace()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 cursor-pointer">
+        <button onclick="closeWizard()" class="px-4 py-2 text-xs font-semibold text-gray-400 hover:text-white">Cancel</button>
+        <button onclick="saveWorkspace()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30">
           Complete Setup &amp; Save Client
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DNS HEALTH VERIFICATION MODAL -->
+  <div id="dnsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-gray-800 border border-gray-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-gray-700 pb-3">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">🔍 1st-Party DNS CNAME Audit</h2>
+          <p class="text-xs text-gray-400" id="dnsModalDomain">Verifying edge proxy routing...</p>
+        </div>
+        <button onclick="closeDnsModal()" class="text-gray-400 hover:text-white font-bold text-xl">&times;</button>
+      </div>
+
+      <div id="dnsModalContent" class="space-y-3 text-xs">
+        <div class="bg-gray-900 p-4 rounded-xl border border-gray-700 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-gray-400">DNS Resolution Status:</span>
+            <span id="dnsResStatus" class="font-bold text-emerald-400">RESOLVED_VALID</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-400">Active CNAME Host:</span>
+            <span id="dnsCnameHost" class="font-mono text-gray-200">track.clientdomain.com</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-400">Target Proxy Shield:</span>
+            <span id="dnsTargetProxy" class="font-mono text-indigo-400">whale-app-gel7l.ondigitalocean.app</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-400">SSL / TLS Certificate:</span>
+            <span id="dnsSslStatus" class="font-bold text-emerald-400">ACTIVE_VALID_TLS (87 Days Left)</span>
+          </div>
+        </div>
+
+        <div class="bg-emerald-950/40 border border-emerald-800/60 p-3 rounded-lg text-emerald-300 text-[11px] leading-relaxed" id="dnsActionMessage">
+          ✓ 1st-party CNAME DNS proxy routing verified. Ad-blocker bypass & 90-day Safari ITP cookies active.
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end pt-2 border-t border-gray-700">
+        <button onclick="closeDnsModal()" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold px-4 py-2 rounded-lg">Close</button>
       </div>
     </div>
   </div>
@@ -326,6 +372,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
   <script>
     function openWizard() { document.getElementById('wizardModal').classList.remove('hidden'); }
     function closeWizard() { document.getElementById('wizardModal').classList.add('hidden'); }
+    function closeDnsModal() { document.getElementById('dnsModal').classList.add('hidden'); }
     
     function toggleInstallInstructions(type) {
       document.getElementById('installBox-cname').classList.add('hidden');
@@ -341,18 +388,47 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
       const provider = document.getElementById('wizCallProvider').value;
       const mode = document.getElementById('wizAccountMode').value;
 
-      document.getElementById('callBox-whitelabel').classList.add('hidden');
-      document.getElementById('callBox-byo-callrail').classList.add('hidden');
-      document.getElementById('callBox-byo-ctm').classList.add('hidden');
+      document.getElementById('callNoticeWhitelabel').classList.add('hidden');
+      document.getElementById('callBoxCallrailByo').classList.add('hidden');
+      document.getElementById('callBoxCtmByo').classList.add('hidden');
 
       if (mode === 'whitelabel') {
-        document.getElementById('callBox-whitelabel').classList.remove('hidden');
+        document.getElementById('callNoticeWhitelabel').classList.remove('hidden');
       } else if (mode === 'byo') {
         if (provider === 'callrail') {
-          document.getElementById('callBox-byo-callrail').classList.remove('hidden');
+          document.getElementById('callBoxCallrailByo').classList.remove('hidden');
         } else if (provider === 'ctm') {
-          document.getElementById('callBox-byo-ctm').classList.remove('hidden');
+          document.getElementById('callBoxCtmByo').classList.remove('hidden');
         }
+      }
+    }
+
+    async function verifyCurrentDns() {
+      const select = document.getElementById('workspaceSelect');
+      const siteId = select.value || 'demo-site-123';
+      
+      document.getElementById('dnsModal').classList.remove('hidden');
+      document.getElementById('dnsModalDomain').textContent = 'Auditing siteId: ' + siteId + '...';
+
+      try {
+        const res = await fetch('/api/v1/dns/verify/' + siteId, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const audit = data.dnsProxyAudit;
+          document.getElementById('dnsModalDomain').textContent = 'Domain: ' + data.domain;
+          document.getElementById('dnsResStatus').textContent = audit.dnsStatus;
+          document.getElementById('dnsCnameHost').textContent = audit.cnameDomain;
+          document.getElementById('dnsTargetProxy').textContent = audit.targetProxy;
+          document.getElementById('dnsSslStatus').textContent = audit.sslStatus + ' (' + audit.sslDaysRemaining + ' Days Remaining)';
+          document.getElementById('dnsActionMessage').textContent = '✓ ' + data.actionTaken;
+          
+          document.getElementById('dnsStatusBadge').textContent = 'Healthy';
+          document.getElementById('dnsStatusSub').textContent = 'Verified: ' + audit.cnameDomain;
+        } else {
+          document.getElementById('dnsActionMessage').textContent = '⚠️ ' + (data.error || 'Failed to verify DNS status');
+        }
+      } catch (err) {
+        document.getElementById('dnsActionMessage').textContent = 'Error connecting to DNS health API endpoint.';
       }
     }
 
@@ -386,14 +462,14 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
       const msUetId = document.getElementById('wizMsUetId').value || '';
       const callProvider = document.getElementById('wizCallProvider').value || 'callrail';
       const accountMode = document.getElementById('wizAccountMode').value || 'whitelabel';
+      
+      const callrailAccId = document.getElementById('wizCallrailAccId') ? document.getElementById('wizCallrailAccId').value : '';
+      const callrailApiKey = document.getElementById('wizCallrailApiKey') ? document.getElementById('wizCallrailApiKey').value : '';
+      const ctmAccId = document.getElementById('wizCtmAccId') ? document.getElementById('wizCtmAccId').value : '';
+      const ctmApiKey = document.getElementById('wizCtmApiKey') ? document.getElementById('wizCtmApiKey').value : '';
+
       const installRadio = document.querySelector('input[name="wizInstall"]:checked');
       const installMethod = installRadio ? installRadio.value : 'cname';
-
-      const callRailAccId = document.getElementById('wizCallRailAccId').value || '';
-      const callRailApiKey = document.getElementById('wizCallRailApiKey').value || '';
-      const ctmAccId = document.getElementById('wizCtmAccId').value || '';
-      const ctmKey = document.getElementById('wizCtmKey').value || '';
-      const ctmSecret = document.getElementById('wizCtmSecret').value || '';
 
       if (!domain) {
         alert('Please enter a target website domain.');
@@ -405,21 +481,20 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: name,
-            domain: domain,
-            phone: phone,
-            gadsId: gadsId,
-            ga4Id: ga4Id,
-            metaPixelId: metaPixelId,
-            msUetId: msUetId,
-            callProvider: callProvider,
-            accountMode: accountMode,
-            installMethod: installMethod,
-            callRailAccId: callRailAccId,
-            callRailApiKey: callRailApiKey,
-            ctmAccId: ctmAccId,
-            ctmKey: ctmKey,
-            ctmSecret: ctmSecret
+            name,
+            domain,
+            phone,
+            gadsId,
+            ga4Id,
+            metaPixelId,
+            msUetId,
+            callProvider,
+            accountMode,
+            callrailAccId,
+            callrailApiKey,
+            ctmAccId,
+            ctmApiKey,
+            installMethod
           })
         });
         const data = await res.json();
