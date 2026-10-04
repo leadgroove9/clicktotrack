@@ -13,11 +13,15 @@ interface CreateWorkspaceBody {
   msUetId?: string;
   callProvider?: string;
   accountMode?: string;
-  callrailAccId?: string;
-  callrailApiKey?: string;
-  ctmAccId?: string;
-  ctmApiKey?: string;
+  callRailAccountId?: string;
+  callRailApiKey?: string;
+  ctmAccountId?: string;
+  ctmAccessKey?: string;
+  ctmSecretKey?: string;
   installMethod?: string;
+  minCallDuration?: string;
+  minEngagementTime?: string;
+  selectedGoalCategories?: string[];
 }
 
 export async function workspaceRoutes(fastify: FastifyInstance) {
@@ -62,11 +66,15 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
         msUetId,
         callProvider,
         accountMode,
-        callrailAccId,
-        callrailApiKey,
-        ctmAccId,
-        ctmApiKey,
+        callRailAccountId,
+        callRailApiKey,
+        ctmAccountId,
+        ctmAccessKey,
+        ctmSecretKey,
         installMethod,
+        minCallDuration,
+        minEngagementTime,
+        selectedGoalCategories
       } = request.body || {};
 
       if (!domain) {
@@ -116,11 +124,15 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
           msUetId,
           callProvider,
           accountMode,
-          callrailAccId,
-          callrailApiKey,
-          ctmAccId,
-          ctmApiKey,
+          callRailAccountId,
+          callRailApiKey,
+          ctmAccountId,
+          ctmAccessKey,
+          ctmSecretKey,
           installMethod,
+          minCallDuration: minCallDuration || '60',
+          minEngagementTime: minEngagementTime || '10',
+          selectedGoalCategories: selectedGoalCategories || ['phone', 'forms', 'clicks'],
         },
       });
     } catch (error: any) {
