@@ -10,8 +10,15 @@ interface CreateWorkspaceBody {
   gadsId?: string;
   ga4Id?: string;
   metaPixelId?: string;
+  msUetId?: string;
   callProvider?: string;
+  accountMode?: string;
   installMethod?: string;
+  callRailAccId?: string;
+  callRailApiKey?: string;
+  ctmAccId?: string;
+  ctmKey?: string;
+  ctmSecret?: string;
 }
 
 export async function workspaceRoutes(fastify: FastifyInstance) {
@@ -46,7 +53,23 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
     reply: FastifyReply
   ) => {
     try {
-      const { name, domain, phone, gadsId, ga4Id, metaPixelId, callProvider, installMethod } = request.body || {};
+      const {
+        name,
+        domain,
+        phone,
+        gadsId,
+        ga4Id,
+        metaPixelId,
+        msUetId,
+        callProvider,
+        accountMode,
+        installMethod,
+        callRailAccId,
+        callRailApiKey,
+        ctmAccId,
+        ctmKey,
+        ctmSecret,
+      } = request.body || {};
 
       if (!domain) {
         return reply.status(400).send({ error: 'Domain is required to create a workspace' });
@@ -92,8 +115,15 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
           gadsId,
           ga4Id,
           metaPixelId,
+          msUetId,
           callProvider,
+          accountMode,
           installMethod,
+          callRailAccId,
+          callRailApiKey,
+          ctmAccId,
+          ctmKey,
+          ctmSecret,
         },
       });
     } catch (error: any) {
