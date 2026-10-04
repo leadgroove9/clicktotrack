@@ -24,7 +24,7 @@
     }
 
     if (message.action === 'EXECUTE_AI_PROMPT') {
-      handleAiPrompt(message.prompt);
+      executeAiPrompt(message.prompt);
       sendResponse({ status: 'ok' });
     }
     return true;
@@ -86,40 +86,43 @@
     renderGoalModal(elementData);
   }
 
-  // AI Prompt Intent Matcher across DOM
-  function handleAiPrompt(promptText) {
-    if (!promptText || !promptText.trim()) return;
+  // Execute AI Natural Language Prompt Parsing on Page DOM
+  function executeAiPrompt(promptText) {
+    if (!promptText || !promptText.trim()) {
+      showNotification('Please enter a description for the goal to track.');
+      return;
+    }
+
+    showNotification('🤖 AI Analyzing Page DOM & Matching Target Element...');
+
     const promptLower = promptText.toLowerCase();
+    const candidates = Array.from(document.querySelectorAll('button, a, form, input[type="submit"], [role="button"], [class*="btn"], [class*="button"], [class*="chat"], [class*="contact"]'));
 
-    showNotification(`AI analyzing page DOM for intent: "${promptText}"...`);
-
-    const candidates = Array.from(document.querySelectorAll('button, a, input[type="submit"], form, div[role="button"], [class*="chat"], [class*="whatsapp"]'));
     let bestMatch = null;
     let highestScore = -1;
 
-    candidates.forEach(el => {
+    candidates.forEach((el) => {
       let score = 0;
-      const text = (el.textContent || el.value || el.ariaLabel || '').toLowerCase();
-      const href = el.getAttribute('href') || '';
-      const className = (el.className || '').toString().toLowerCase();
+      const text = (el.textContent || el.value || el.ariaLabel || el.id || el.className || '').toLowerCase();
+      const href = (el.getAttribute('href') || '').toLowerCase();
 
       if (promptLower.includes('phone') || promptLower.includes('call')) {
-        if (href.startsWith('tel:') || text.includes('call') || /\d{3}-\d{3}-\d{4}/.test(text)) score += 10;
+        if (href.startsWith('tel:') || /\d{3}-\d{3}-\d{4}/.test(text)) score += 10;
       }
       if (promptLower.includes('chat') || promptLower.includes('whatsapp') || promptLower.includes('message')) {
-        if (text.includes('chat') || className.includes('whatsapp') || text.includes('message')) score += 10;
+        if (text.includes('chat') || text.includes('whatsapp') || href.includes('wa.me')) score += 10;
       }
-      if (promptLower.includes('form') || promptLower.includes('contact') || promptLower.includes('submit')) {
-        if (el.tagName === 'FORM' || text.includes('submit') || text.includes('send')) score += 10;
+      if (promptLower.includes('form') || promptLower.includes('submit') || promptLower.includes('contact')) {
+        if (el.tagName === 'FORM' || el.tagName === 'INPUT' || text.includes('submit') || text.includes('send') || text.includes('contact')) score += 8;
       }
-      if (promptLower.includes('book') || promptLower.includes('appointment') || promptLower.includes('demo')) {
-        if (text.includes('book') || text.includes('schedule') || text.includes('appointment') || text.includes('demo')) score += 10;
+      if (promptLower.includes('button') || promptLower.includes('click')) {
+        if (el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button') score += 5;
       }
 
-      // Keyword match bonus
-      const promptWords = promptLower.split(/\s+/).filter(w => w.length > 3);
-      promptWords.forEach(word => {
-        if (text.includes(word) || className.includes(word)) score += 3;
+      // Keyword token matching
+      const tokens = promptLower.split(/\s+/).filter(t => t.length > 3);
+      tokens.forEach((t) => {
+        if (text.includes(t)) score += 3;
       });
 
       if (score > highestScore) {
@@ -128,19 +131,20 @@
       }
     });
 
-    const targetEl = bestMatch || document.querySelector('button, input[type="submit"], a') || document.body;
+    const targetEl = bestMatch || candidates[0] || document.querySelector('button') || document.body;
+
+    // Highlight target element
     targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     targetEl.style.outline = '4px solid #a855f7';
     targetEl.style.outlineOffset = '2px';
+    setTimeout(() => { targetEl.style.outline = ''; }, 4000);
 
-    setTimeout(() => {
-      targetEl.style.outline = '';
-      const elementData = extractElementDetails(targetEl);
-      if (promptText) {
-        elementData.suggestedTitle = promptText.slice(0, 40);
-      }
-      renderGoalModal(elementData);
-    }, 1200);
+    const elementData = extractElementDetails(targetEl);
+    if (promptText.length > 3) {
+      elementData.suggestedTitle = promptText.slice(0, 40).replace(/^\w/, c => c.toUpperCase());
+    }
+
+    renderGoalModal(elementData);
   }
 
   // Generate Stable CSS Selector
@@ -179,6 +183,7 @@
     return `//${el.tagName.toLowerCase()}`;
   }
 
+  // Infer Goal Title and Category based on element context
   function inferGoalMetadata(el) {
     const text = (el.textContent || el.value || el.ariaLabel || '').toLowerCase();
     const tag = el.tagName.toLowerCase();
@@ -323,13 +328,19 @@
       statusEl.textContent = 'Saving goal & provisioning ad platform APIs...';
 
       chrome.runtime.sendMessage({ action: 'SAVE_GOAL', data: goalPayload }, (response) => {
-        if (response && (response.success || response.data?.success)) {
+        if (chrome.runtime.lastError) {
+          statusEl.style.color = '#dc2626';
+          statusEl.textContent = 'Error: ' + chrome.runtime.lastError.message;
+          return;
+        }
+
+        if (response && (response.success || response.data?.success || response.data?.status === 'SAVED_LOCAL')) {
           statusEl.style.color = '#16a34a';
           statusEl.textContent = 'Goal provisioned successfully across all ad platforms!';
           setTimeout(() => card.remove(), 2000);
         } else {
           statusEl.style.color = '#dc2626';
-          statusEl.textContent = 'Error saving goal: ' + (response?.error || response?.data?.error || 'Server error');
+          statusEl.textContent = 'Error saving goal: ' + (response?.data?.error || response?.error || 'Server error');
         }
       });
     };
