@@ -24,6 +24,8 @@ import { landingDiscoveryRoutes } from './routes/landing-discovery';
 import { usageMeterRoutes } from './routes/usage-meter';
 import { superAdminRoutes } from './routes/super-admin';
 import { adrollRoutes } from './routes/adroll';
+import { workspaceRoutes } from './routes/workspaces';
+
 
 
 
@@ -65,7 +67,7 @@ server.register(landingDiscoveryRoutes);
 server.register(usageMeterRoutes);
 server.register(superAdminRoutes);
 server.register(adrollRoutes);
-
+server.register(workspaceRoutes);
 
 
 // Health check endpoint for DigitalOcean readiness probes
