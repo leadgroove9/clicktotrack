@@ -4,8 +4,8 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 interface CreateWorkspaceBody {
-  name: string;
-  domain: string;
+  name?: string;
+  domain?: string;
   phone?: string;
   gadsId?: string;
   ga4Id?: string;
@@ -57,9 +57,9 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Extract hostname string cleanly into two explicit steps
-      const splitParts = domain.trim().toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').split('/');
-      const cleanDomain: string = splitParts;
+      // Extract hostname string cleanly with array indexing
+      const rawDomain = domain.trim().toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '');
+      const cleanDomain: string = rawDomain.split('/');
 
       // Generate siteId slug from cleanDomain (e.g. "example-com-workspace")
       const siteId: string = cleanDomain.replace(/[^a-z0-9]/g, '-') + '-workspace';
