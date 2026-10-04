@@ -59,10 +59,10 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
 
       // Clean domain string properly (e.g. "https://www.example.com/page" -> "example.com")
       const cleanDomain = domain
+        .trim()
         .toLowerCase()
         .replace(/^(https?:\/\/)?(www\.)?/, '')
-        .split('/')
-        .trim();
+        .split('/');
 
       // Generate siteId slug from cleanDomain (e.g. "example-com-workspace")
       const siteId = cleanDomain.replace(/[^a-z0-9]/g, '-') + '-workspace';
