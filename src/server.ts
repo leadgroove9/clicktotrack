@@ -27,18 +27,13 @@ import { adrollRoutes } from './routes/adroll';
 import { workspaceRoutes } from './routes/workspaces';
 import { goalRoutes } from './routes/goals';
 
-// 1. Initialize Fastify server
 const server = Fastify({
   logger: true,
 });
 
-// 2. Register Middleware
-server.register(cors, {
-  origin: '*',
-});
+server.register(cors, { origin: '*' });
 server.register(formbody);
 
-// 3. Register All Webhook, Tracking, Dashboard, Workspace, Goal & Monitoring Routes
 server.register(trackRoutes);
 server.register(scriptRoutes);
 server.register(paypalWebhookRoutes);
@@ -65,7 +60,6 @@ server.register(adrollRoutes);
 server.register(workspaceRoutes);
 server.register(goalRoutes);
 
-// Health check endpoint for DigitalOcean readiness probes
 server.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
