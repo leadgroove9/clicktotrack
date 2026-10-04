@@ -68,25 +68,117 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
   </div>
 
   <!-- ONBOARDING WIZARD MODAL -->
-  <div id="wizardModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-gray-800 border border-gray-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+  <div id="wizardModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-gray-800 border border-gray-700 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl my-8">
       <div class="flex items-center justify-between border-b border-gray-700 pb-3">
-        <h2 class="text-lg font-bold text-white">Add New Client / Domain</h2>
+        <div>
+          <h2 class="text-lg font-bold text-white">New Client Onboarding & Setup Wizard</h2>
+          <p class="text-xs text-gray-400">Configure 1st-party conversion tracking & ad integrations</p>
+        </div>
         <button onclick="closeWizard()" class="text-gray-400 hover:text-white font-bold text-xl">&times;</button>
       </div>
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs font-semibold text-gray-300 mb-1">Company / Client Name</label>
-          <input type="text" id="wizName" placeholder="e.g. Acme Plumbing" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+
+      <div class="space-y-4 text-xs max-h-[70vh] overflow-y-auto pr-2">
+        <!-- STEP 1: BUSINESS & WEBSITE -->
+        <div class="space-y-3 bg-gray-900/60 p-4 rounded-xl border border-gray-700/60">
+          <div class="font-bold text-indigo-400 uppercase tracking-wider text-[11px]">Step 1: Client & Website Details</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-gray-300 mb-1">Company / Workspace Name *</label>
+              <input type="text" id="wizName" placeholder="e.g. Acme Plumbing & HVAC" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+            </div>
+            <div>
+              <label class="block font-semibold text-gray-300 mb-1">Target Website Domain *</label>
+              <input type="text" id="wizDomain" placeholder="e.g. acmeplumbing.com" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-300 mb-1">Primary Business Phone Number</label>
+            <input type="text" id="wizPhone" placeholder="e.g. +1 (555) 019-2831" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+          </div>
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-300 mb-1">Target Website Domain</label>
-          <input type="text" id="wizDomain" placeholder="e.g. acmeplumbing.com" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+
+        <!-- STEP 2: INSTALLATION METHOD -->
+        <div class="space-y-3 bg-gray-900/60 p-4 rounded-xl border border-gray-700/60">
+          <div class="font-bold text-indigo-400 uppercase tracking-wider text-[11px]">Step 2: Installation Method Selection</div>
+          <div class="space-y-2">
+            <label class="flex items-start gap-2 bg-gray-900 p-2.5 rounded-lg border border-indigo-700/50 cursor-pointer">
+              <input type="radio" name="wizInstall" value="cname" checked class="mt-0.5 text-indigo-600">
+              <div>
+                <span class="font-bold text-white">Option 1: CNAME Setup (Recommended)</span>
+                <p class="text-[11px] text-gray-400">Zero code changes, immune to theme updates & 100% ad-blocker resistant.</p>
+              </div>
+            </label>
+            <label class="flex items-start gap-2 bg-gray-900 p-2.5 rounded-lg border border-gray-800 cursor-pointer">
+              <input type="radio" name="wizInstall" value="wp-mu" class="mt-0.5 text-indigo-600">
+              <div>
+                <span class="font-bold text-white">Option 2: WordPress Must-Use Plugin (mu-plugin)</span>
+                <p class="text-[11px] text-gray-400">Auto-activated single PHP file in /wp-content/mu-plugins/ that cannot be overwritten.</p>
+              </div>
+            </label>
+            <label class="flex items-start gap-2 bg-gray-900 p-2.5 rounded-lg border border-gray-800 cursor-pointer">
+              <input type="radio" name="wizInstall" value="shopify" class="mt-0.5 text-indigo-600">
+              <div>
+                <span class="font-bold text-white">Option 3: Shopify Theme App Extension</span>
+                <p class="text-[11px] text-gray-400">Native App Embed that persists across Shopify theme updates.</p>
+              </div>
+            </label>
+          </div>
+
+          <!-- DNS RECORD INFO BOX -->
+          <div class="bg-gray-950 p-3 rounded-lg border border-gray-800 space-y-1">
+            <div class="text-[11px] font-bold text-emerald-400">DNS 1st-Party Edge Proxy CNAME Target:</div>
+            <div class="font-mono text-gray-200 text-[11px]">CNAME track &rarr; whale-app-gel7l.ondigitalocean.app</div>
+          </div>
         </div>
+
+        <!-- STEP 3: AD PLATFORM INTEGRATIONS -->
+        <div class="space-y-3 bg-gray-900/60 p-4 rounded-xl border border-gray-700/60">
+          <div class="font-bold text-indigo-400 uppercase tracking-wider text-[11px]">Step 3: Ad Platform & Analytics Credentials</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-gray-300 mb-1">Google Ads Customer ID</label>
+              <input type="text" id="wizGadsId" placeholder="e.g. 123-456-7890" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+            </div>
+            <div>
+              <label class="block font-semibold text-gray-300 mb-1">GA4 Measurement ID</label>
+              <input type="text" id="wizGa4Id" placeholder="e.g. G-X1Y2Z3A4" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-300 mb-1">Meta Pixel ID / CAPI Token</label>
+            <input type="text" id="wizMetaPixelId" placeholder="e.g. 1092837465" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+          </div>
+        </div>
+
+        <!-- STEP 4: CALL TRACKING PROVIDER -->
+        <div class="space-y-3 bg-gray-900/60 p-4 rounded-xl border border-gray-700/60">
+          <div class="font-bold text-indigo-400 uppercase tracking-wider text-[11px]">Step 4: Call Tracking Provider & Account Model</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-gray-300 mb-1">Call Tracking Provider</label>
+              <select id="wizCallProvider" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+                <option value="callrail">CallRail (US/CA Default)</option>
+                <option value="ctm">CallTrackingMetrics (Global/International)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold text-gray-300 mb-1">Account Mode</label>
+              <select id="wizAccountMode" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white">
+                <option value="whitelabel">Whitelabel Turnkey (SaaS Master Account)</option>
+                <option value="byo">BYO Account (Own API Key)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
       </div>
+
       <div class="flex items-center justify-end space-x-3 pt-3 border-t border-gray-700">
         <button onclick="closeWizard()" class="px-4 py-2 text-xs font-semibold text-gray-400 hover:text-white">Cancel</button>
-        <button onclick="saveWorkspace()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg">Save Client</button>
+        <button onclick="saveWorkspace()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30">
+          Complete Setup &amp; Save Client
+        </button>
       </div>
     </div>
   </div>
@@ -118,15 +210,33 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
     async function saveWorkspace() {
       const name = document.getElementById('wizName').value || 'New Client';
       const domain = document.getElementById('wizDomain').value || '';
+      const phone = document.getElementById('wizPhone').value || '';
+      const gadsId = document.getElementById('wizGadsId').value || '';
+      const ga4Id = document.getElementById('wizGa4Id').value || '';
+      const metaPixelId = document.getElementById('wizMetaPixelId').value || '';
+      const callProvider = document.getElementById('wizCallProvider').value || 'callrail';
+      const installRadio = document.querySelector('input[name="wizInstall"]:checked');
+      const installMethod = installRadio ? installRadio.value : 'cname';
+
       if (!domain) {
         alert('Please enter a target website domain.');
         return;
       }
+
       try {
         const res = await fetch('/api/v1/workspaces', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, domain })
+          body: JSON.stringify({
+            name,
+            domain,
+            phone,
+            gadsId,
+            ga4Id,
+            metaPixelId,
+            callProvider,
+            installMethod
+          })
         });
         const data = await res.json();
         if (res.ok && data.success) {
