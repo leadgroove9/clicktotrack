@@ -8,7 +8,7 @@ interface DashboardRouteParams {
 }
 
 export async function dashboardRoutes(fastify: FastifyInstance) {
-  // 1. Serve Visual Dashboard HTML Page (GET /dashboard)
+  // 1. Serve Visual Dashboard HTML Interface (GET /dashboard)
   fastify.get('/dashboard', async (request: FastifyRequest, reply: FastifyReply) => {
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -36,7 +36,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
           + Add New Client / Domain
         </button>
         <select id="workspaceSelect" onchange="switchWorkspace(this.value)" class="bg-gray-900 border border-gray-700 text-gray-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-500 font-medium">
-          <option value="demo-site-123">Loading client workspaces...</option>
+          <option value="">Loading client workspaces...</option>
         </select>
       </div>
     </header>
@@ -94,13 +94,60 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
   <script>
     function openWizard() { document.getElementById('wizardModal').classList.remove('hidden'); }
     function closeWizard() { document.getElementById('wizardModal').classList.add('hidden'); }
-    function saveWorkspace() {
-      const name = document.getElementById('wizName').value || 'New Client';
-      const domain = document.getElementById('wizDomain').value || 'client.com';
-      alert('Created workspace for ' + name + ' (' + domain + ')!');
-      closeWizard();
+
+    async function loadWorkspaces() {
+      try {
+        const res = await fetch('/api/v1/workspaces');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.workspaces && data.workspaces.length > 0) {
+          const select = document.getElementById('workspaceSelect');
+          select.innerHTML = '';
+          data.workspaces.forEach(ws => {
+            const opt = document.createElement('option');
+            opt.value = ws.siteId;
+            opt.textContent = ws.domain + ' (' + (ws.cnameDomain || 'track.' + ws.domain) + ')';
+            select.appendChild(opt);
+          });
+        }
+      } catch (err) {
+        console.error('Error loading workspaces:', err);
+      }
     }
-    function switchWorkspace(val) { alert('Switched workspace to: ' + val); }
+
+    async function saveWorkspace() {
+      const name = document.getElementById('wizName').value || 'New Client';
+      const domain = document.getElementById('wizDomain').value || '';
+      if (!domain) {
+        alert('Please enter a target website domain.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/v1/workspaces', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, domain })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alert('Successfully created workspace for ' + domain + '!');
+          closeWizard();
+          loadWorkspaces();
+        } else {
+          alert('Error: ' + (data.error || 'Failed to save workspace'));
+        }
+      } catch (err) {
+        alert('Error connecting to backend server.');
+      }
+    }
+
+    function switchWorkspace(val) {
+      if (val) {
+        alert('Switched active workspace to: ' + val);
+      }
+    }
+
+    loadWorkspaces();
   </script>
 </body>
 </html>`;

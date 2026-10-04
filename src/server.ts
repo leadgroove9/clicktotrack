@@ -26,24 +26,13 @@ import { superAdminRoutes } from './routes/super-admin';
 import { adrollRoutes } from './routes/adroll';
 import { workspaceRoutes } from './routes/workspaces';
 
-
-
-
-
-
-
-// 1. Initialize Fastify server FIRST
 const server = Fastify({
   logger: true,
 });
 
-// 2. Register Middleware
-server.register(cors, {
-  origin: '*',
-});
-server.register(formbody); // Form parser for PayPal IPN x-www-form-urlencoded payloads
+server.register(cors, { origin: '*' });
+server.register(formbody);
 
-// 3. Register All Webhook & Tracking Routes
 server.register(trackRoutes);
 server.register(scriptRoutes);
 server.register(paypalWebhookRoutes);
@@ -69,21 +58,13 @@ server.register(superAdminRoutes);
 server.register(adrollRoutes);
 server.register(workspaceRoutes);
 
-
-// Health check endpoint for DigitalOcean readiness probes
 server.get('/health', async (request, reply) => {
-  return { status: 'ok', timestamp: new Date().toISOString() };server.register(syntheticTesterRoutes);
-});
-
-// Root endpoint
-server.get('/', async (request, reply) => {
-  return { message: 'ClicktoTrack API Engine Running (PayPal IPN & Stripe Webhooks Active)' };
+  return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
 const start = async () => {
   try {
     const port = Number(process.env.PORT) || 3000;
-    // Bind to 0.0.0.0 for DigitalOcean container network interface
     await server.listen({ port, host: '0.0.0.0' });
     console.log(`Server listening on http://0.0.0.0:${port}`);
   } catch (err) {
