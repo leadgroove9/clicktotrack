@@ -57,13 +57,14 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Extract hostname string cleanly with array indexing
+      // Extract hostname string cleanly using string substring
       const rawDomain = domain.trim().toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '');
-      const cleanDomain: string = rawDomain.split('/');
+      const slashPos = rawDomain.indexOf('/');
+      const cleanDomain: string = slashPos !== -1 ? rawDomain.substring(0, slashPos) : rawDomain;
 
       // Generate siteId slug from cleanDomain (e.g. "example-com-workspace")
       const siteId: string = cleanDomain.replace(/[^a-z0-9]/g, '-') + '-workspace';
-      const cnameDomain: string = `track.${cleanDomain}`;
+      const cnameDomain: string = 'track.' + cleanDomain;
 
       // Save Workspace to PostgreSQL via Prisma
       const workspace = await prisma.workspace.create({
