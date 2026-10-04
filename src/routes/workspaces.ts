@@ -57,8 +57,14 @@ export async function workspaceRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Generate clean siteId slug from domain
-      const cleanDomain = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').split('/');
+      // Clean domain string properly (e.g. "https://www.example.com/page" -> "example.com")
+      const cleanDomain = domain
+        .toLowerCase()
+        .replace(/^(https?:\/\/)?(www\.)?/, '')
+        .split('/')
+        .trim();
+
+      // Generate siteId slug from cleanDomain (e.g. "example-com-workspace")
       const siteId = cleanDomain.replace(/[^a-z0-9]/g, '-') + '-workspace';
       const cnameDomain = `track.${cleanDomain}`;
 
