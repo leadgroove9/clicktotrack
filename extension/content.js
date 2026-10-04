@@ -1,5 +1,5 @@
 /**
- * ClicktoTrack Visual Element Inspector & Point-and-Click / AI Goal Selector
+ * ClicktoTrack Visual Element Inspector & Point-and-Click Goal Selector
  * Content Script injected into target client web pages.
  */
 
@@ -21,8 +21,10 @@
         disableInspector();
       }
       sendResponse({ status: 'ok', active: isInspectorActive });
-    } else if (message.action === 'EXECUTE_AI_PROMPT') {
-      executeAiPrompt(message.prompt);
+    }
+
+    if (message.action === 'EXECUTE_AI_PROMPT') {
+      handleAiPrompt(message.prompt);
       sendResponse({ status: 'ok' });
     }
     return true;
@@ -84,40 +86,41 @@
     renderGoalModal(elementData);
   }
 
-  // AI Prompt Natural Language Intent Matcher
-  function executeAiPrompt(userPrompt) {
-    showNotification('🤖 AI Natural Language Mode: Analyzing DOM tree...');
-    const promptLower = (userPrompt || '').toLowerCase();
-    
-    // Find all potential interactive elements on page
-    const elements = Array.from(document.querySelectorAll('button, a, form, input[type="submit"], input[type="button"], [role="button"], [class*="btn"], [class*="chat"], [class*="whatsapp"], [class*="form"]'));
-    
+  // AI Prompt Intent Matcher across DOM
+  function handleAiPrompt(promptText) {
+    if (!promptText || !promptText.trim()) return;
+    const promptLower = promptText.toLowerCase();
+
+    showNotification(`AI analyzing page DOM for intent: "${promptText}"...`);
+
+    const candidates = Array.from(document.querySelectorAll('button, a, input[type="submit"], form, div[role="button"], [class*="chat"], [class*="whatsapp"]'));
     let bestMatch = null;
     let highestScore = -1;
 
-    elements.forEach(el => {
-      const text = (el.textContent || el.value || el.getAttribute('aria-label') || el.id || el.className || '').toLowerCase();
+    candidates.forEach(el => {
       let score = 0;
+      const text = (el.textContent || el.value || el.ariaLabel || '').toLowerCase();
+      const href = el.getAttribute('href') || '';
+      const className = (el.className || '').toString().toLowerCase();
 
-      // Token match scoring
-      const promptWords = promptLower.split(/\s+/).filter(w => w.length > 2);
-      promptWords.forEach(word => {
-        if (text.includes(word)) score += 2;
-      });
-
-      // Semantic Intent Boosts
       if (promptLower.includes('phone') || promptLower.includes('call')) {
-        if (text.includes('tel:') || text.includes('call') || text.includes('phone') || /\d{3}-\d{3}-\d{4}/.test(text)) score += 5;
+        if (href.startsWith('tel:') || text.includes('call') || /\d{3}-\d{3}-\d{4}/.test(text)) score += 10;
       }
       if (promptLower.includes('chat') || promptLower.includes('whatsapp') || promptLower.includes('message')) {
-        if (text.includes('chat') || text.includes('whatsapp') || text.includes('message')) score += 5;
+        if (text.includes('chat') || className.includes('whatsapp') || text.includes('message')) score += 10;
       }
-      if (promptLower.includes('form') || promptLower.includes('contact') || promptLower.includes('submit') || promptLower.includes('lead')) {
-        if (el.tagName === 'FORM' || el.tagName === 'INPUT' || text.includes('submit') || text.includes('send') || text.includes('contact')) score += 5;
+      if (promptLower.includes('form') || promptLower.includes('contact') || promptLower.includes('submit')) {
+        if (el.tagName === 'FORM' || text.includes('submit') || text.includes('send')) score += 10;
       }
-      if (promptLower.includes('appointment') || promptLower.includes('book') || promptLower.includes('schedule')) {
-        if (text.includes('book') || text.includes('schedule') || text.includes('appointment') || text.includes('calendly')) score += 5;
+      if (promptLower.includes('book') || promptLower.includes('appointment') || promptLower.includes('demo')) {
+        if (text.includes('book') || text.includes('schedule') || text.includes('appointment') || text.includes('demo')) score += 10;
       }
+
+      // Keyword match bonus
+      const promptWords = promptLower.split(/\s+/).filter(w => w.length > 3);
+      promptWords.forEach(word => {
+        if (text.includes(word) || className.includes(word)) score += 3;
+      });
 
       if (score > highestScore) {
         highestScore = score;
@@ -125,38 +128,19 @@
       }
     });
 
-    if (!bestMatch) {
-      bestMatch = document.querySelector('button, form, a[href^="tel:"]') || document.body;
-    }
-
-    // Scroll to & highlight best match with a purple AI border
-    bestMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    bestMatch.style.outline = '4px solid #a855f7';
-    bestMatch.style.outlineOffset = '3px';
-
-    const elementData = extractElementDetails(bestMatch);
-    
-    // Customize suggested metadata based on prompt intent
-    if (promptLower.includes('phone') || promptLower.includes('call')) {
-      elementData.suggestedTitle = 'Phone Call Lead';
-      elementData.suggestedCategory = 'Phone Call';
-    } else if (promptLower.includes('chat') || promptLower.includes('whatsapp')) {
-      elementData.suggestedTitle = 'Live Chat Initiated';
-      elementData.suggestedCategory = 'Live Chat';
-    } else if (promptLower.includes('appointment') || promptLower.includes('book')) {
-      elementData.suggestedTitle = 'Booked Appointment';
-      elementData.suggestedCategory = 'Booked Appointment';
-    } else if (promptLower.includes('form') || promptLower.includes('contact')) {
-      elementData.suggestedTitle = 'Lead Form Submission';
-      elementData.suggestedCategory = 'Form Fill';
-    } else {
-      elementData.suggestedTitle = userPrompt.slice(0, 35);
-    }
+    const targetEl = bestMatch || document.querySelector('button, input[type="submit"], a') || document.body;
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targetEl.style.outline = '4px solid #a855f7';
+    targetEl.style.outlineOffset = '2px';
 
     setTimeout(() => {
-      bestMatch.style.outline = '';
+      targetEl.style.outline = '';
+      const elementData = extractElementDetails(targetEl);
+      if (promptText) {
+        elementData.suggestedTitle = promptText.slice(0, 40);
+      }
       renderGoalModal(elementData);
-    }, 600);
+    }, 1200);
   }
 
   // Generate Stable CSS Selector
@@ -195,7 +179,6 @@
     return `//${el.tagName.toLowerCase()}`;
   }
 
-  // Infer Goal Title and Category based on element context
   function inferGoalMetadata(el) {
     const text = (el.textContent || el.value || el.ariaLabel || '').toLowerCase();
     const tag = el.tagName.toLowerCase();
@@ -340,13 +323,13 @@
       statusEl.textContent = 'Saving goal & provisioning ad platform APIs...';
 
       chrome.runtime.sendMessage({ action: 'SAVE_GOAL', data: goalPayload }, (response) => {
-        if (response && response.success) {
+        if (response && (response.success || response.data?.success)) {
           statusEl.style.color = '#16a34a';
           statusEl.textContent = 'Goal provisioned successfully across all ad platforms!';
           setTimeout(() => card.remove(), 2000);
         } else {
           statusEl.style.color = '#dc2626';
-          statusEl.textContent = 'Error saving goal: ' + (response?.error || 'Server error');
+          statusEl.textContent = 'Error saving goal: ' + (response?.error || response?.data?.error || 'Server error');
         }
       });
     };

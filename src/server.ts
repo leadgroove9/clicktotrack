@@ -25,14 +25,20 @@ import { usageMeterRoutes } from './routes/usage-meter';
 import { superAdminRoutes } from './routes/super-admin';
 import { adrollRoutes } from './routes/adroll';
 import { workspaceRoutes } from './routes/workspaces';
+import { goalRoutes } from './routes/goals';
 
+// 1. Initialize Fastify server
 const server = Fastify({
   logger: true,
 });
 
-server.register(cors, { origin: '*' });
+// 2. Register Middleware
+server.register(cors, {
+  origin: '*',
+});
 server.register(formbody);
 
+// 3. Register All Webhook, Tracking, Dashboard, Workspace, Goal & Monitoring Routes
 server.register(trackRoutes);
 server.register(scriptRoutes);
 server.register(paypalWebhookRoutes);
@@ -57,7 +63,9 @@ server.register(usageMeterRoutes);
 server.register(superAdminRoutes);
 server.register(adrollRoutes);
 server.register(workspaceRoutes);
+server.register(goalRoutes);
 
+// Health check endpoint for DigitalOcean readiness probes
 server.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
