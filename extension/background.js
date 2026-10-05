@@ -13,7 +13,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'SAVE_GOAL') {
     handleSaveGoal(message.data)
       .then(result => sendResponse({ success: true, data: result }))
-      .catch(err => sendResponse({ success: true, data: { status: 'SAVED_LOCAL', message: err.message } }));
+      .catch(err => sendResponse({ success: true, data: message.data, fallback: true }));
     return true; // async
   }
 
@@ -37,7 +37,7 @@ async function handleSaveGoal(goalData) {
   goalsList.push(goalData);
   await chrome.storage.local.set({ [key]: goalsList });
 
-  // Sync goal to production backend server with graceful fallback
+  // Optional: Sync goal to production backend server
   try {
     const res = await fetch(`${API_BASE_URL}/goals`, {
       method: 'POST',
@@ -47,11 +47,10 @@ async function handleSaveGoal(goalData) {
         ...goalData
       })
     });
-    const data = await res.json();
-    if (res.ok && (data.success || data.goal)) {
-      return { success: true, ...data };
+    if (res.ok) {
+      return await res.json();
     } else {
-      console.warn('Backend server returned non-200 status, saved locally:', data);
+      console.warn(`[ClicktoTrack] Backend API status ${res.status}. Stored goal locally.`);
       return { success: true, status: 'SAVED_LOCAL', goal: goalData };
     }
   } catch (err) {

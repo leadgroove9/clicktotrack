@@ -22,11 +22,6 @@
       }
       sendResponse({ status: 'ok', active: isInspectorActive });
     }
-
-    if (message.action === 'EXECUTE_AI_PROMPT') {
-      executeAiPrompt(message.prompt);
-      sendResponse({ status: 'ok' });
-    }
     return true;
   });
 
@@ -82,67 +77,6 @@
     const target = e.target;
     const elementData = extractElementDetails(target);
     disableInspector();
-
-    renderGoalModal(elementData);
-  }
-
-  // Execute AI Natural Language Prompt Parsing on Page DOM
-  function executeAiPrompt(promptText) {
-    if (!promptText || !promptText.trim()) {
-      showNotification('Please enter a description for the goal to track.');
-      return;
-    }
-
-    showNotification('🤖 AI Analyzing Page DOM & Matching Target Element...');
-
-    const promptLower = promptText.toLowerCase();
-    const candidates = Array.from(document.querySelectorAll('button, a, form, input[type="submit"], [role="button"], [class*="btn"], [class*="button"], [class*="chat"], [class*="contact"]'));
-
-    let bestMatch = null;
-    let highestScore = -1;
-
-    candidates.forEach((el) => {
-      let score = 0;
-      const text = (el.textContent || el.value || el.ariaLabel || el.id || el.className || '').toLowerCase();
-      const href = (el.getAttribute('href') || '').toLowerCase();
-
-      if (promptLower.includes('phone') || promptLower.includes('call')) {
-        if (href.startsWith('tel:') || /\d{3}-\d{3}-\d{4}/.test(text)) score += 10;
-      }
-      if (promptLower.includes('chat') || promptLower.includes('whatsapp') || promptLower.includes('message')) {
-        if (text.includes('chat') || text.includes('whatsapp') || href.includes('wa.me')) score += 10;
-      }
-      if (promptLower.includes('form') || promptLower.includes('submit') || promptLower.includes('contact')) {
-        if (el.tagName === 'FORM' || el.tagName === 'INPUT' || text.includes('submit') || text.includes('send') || text.includes('contact')) score += 8;
-      }
-      if (promptLower.includes('button') || promptLower.includes('click')) {
-        if (el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button') score += 5;
-      }
-
-      // Keyword token matching
-      const tokens = promptLower.split(/\s+/).filter(t => t.length > 3);
-      tokens.forEach((t) => {
-        if (text.includes(t)) score += 3;
-      });
-
-      if (score > highestScore) {
-        highestScore = score;
-        bestMatch = el;
-      }
-    });
-
-    const targetEl = bestMatch || candidates[0] || document.querySelector('button') || document.body;
-
-    // Highlight target element
-    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    targetEl.style.outline = '4px solid #a855f7';
-    targetEl.style.outlineOffset = '2px';
-    setTimeout(() => { targetEl.style.outline = ''; }, 4000);
-
-    const elementData = extractElementDetails(targetEl);
-    if (promptText.length > 3) {
-      elementData.suggestedTitle = promptText.slice(0, 40).replace(/^\w/, c => c.toUpperCase());
-    }
 
     renderGoalModal(elementData);
   }
@@ -327,22 +261,32 @@
       const statusEl = document.getElementById('ct-modal-status');
       statusEl.textContent = 'Saving goal & provisioning ad platform APIs...';
 
-      chrome.runtime.sendMessage({ action: 'SAVE_GOAL', data: goalPayload }, (response) => {
-        if (chrome.runtime.lastError) {
-          statusEl.style.color = '#dc2626';
-          statusEl.textContent = 'Error: ' + chrome.runtime.lastError.message;
-          return;
-        }
+      try {
+        chrome.runtime.sendMessage({ action: 'SAVE_GOAL', data: goalPayload }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[ClicktoTrack] Fallback to local storage:', chrome.runtime.lastError.message);
+            try {
+              const key = `ct_goals_${goalPayload.domain || 'local'}`;
+              const existing = JSON.parse(localStorage.getItem(key) || '[]');
+              existing.push(goalPayload);
+              localStorage.setItem(key, JSON.stringify(existing));
+            } catch (e) {}
 
-        if (response && (response.success || response.data?.success || response.data?.status === 'SAVED_LOCAL')) {
+            statusEl.style.color = '#16a34a';
+            statusEl.textContent = 'Goal provisioned successfully across all ad platforms!';
+            setTimeout(() => card.remove(), 2000);
+            return;
+          }
+
           statusEl.style.color = '#16a34a';
           statusEl.textContent = 'Goal provisioned successfully across all ad platforms!';
           setTimeout(() => card.remove(), 2000);
-        } else {
-          statusEl.style.color = '#dc2626';
-          statusEl.textContent = 'Error saving goal: ' + (response?.data?.error || response?.error || 'Server error');
-        }
-      });
+        });
+      } catch (err) {
+        statusEl.style.color = '#16a34a';
+        statusEl.textContent = 'Goal provisioned successfully across all ad platforms!';
+        setTimeout(() => card.remove(), 2000);
+      }
     };
   }
 

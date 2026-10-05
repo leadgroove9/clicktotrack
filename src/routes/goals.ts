@@ -87,7 +87,7 @@ export async function goalRoutes(fastify: FastifyInstance) {
       });
     } catch (error: any) {
       fastify.log.error(`[Goal POST Error]: ${error?.message || error}`);
-      return reply.status(500).send({ error: 'Failed to save goal', details: error?.message });
+      return reply.status(500).send({ success: false, error: 'Failed to save goal', details: error?.message });
     }
   });
 
@@ -126,7 +126,7 @@ export async function goalRoutes(fastify: FastifyInstance) {
       });
     } catch (error: any) {
       fastify.log.error(`[Goals GET Error]: ${error?.message || error}`);
-      return reply.status(500).send({ error: 'Failed to fetch goals' });
+      return reply.status(500).send({ success: false, error: 'Failed to fetch goals' });
     }
   });
 }
