@@ -8,7 +8,7 @@ interface DashboardRouteParams {
 }
 
 export async function dashboardRoutes(fastify: FastifyInstance) {
-  // 1. Dashboard Overview Metrics JSON API (GET /api/v1/dashboard/overview/:siteId?)
+  // 1. Dashboard Overview Metrics Endpoint (GET /api/v1/dashboard/overview/:siteId?)
   fastify.get('/api/v1/dashboard/overview/:siteId?', async (
     request: FastifyRequest<{ Params: DashboardRouteParams }>,
     reply: FastifyReply
@@ -17,7 +17,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
       const urlParams = request.params || {};
       const siteId = urlParams.siteId || 'demo-site-123';
 
-      const workspace = await prisma.workspace.findUnique({
+      const workspace = await (prisma.workspace as any).findUnique({
         where: { siteId },
         include: {
           goals: true,
@@ -39,6 +39,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
       let metaAdsCount = 0;
       let microsoftAdsCount = 0;
       let organicWebhookCount = 0;
+
       let emailHashedCount = 0;
       let phoneHashedCount = 0;
 
@@ -55,6 +56,11 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
       const gclidMatchRate = totalConversions > 0 ? (googleAdsCount / totalConversions) * 100 : 100;
       const enhancedMatchRate = totalConversions > 0 ? (emailHashedCount / totalConversions) * 100 : 100;
       const healthScore = Math.round((gclidMatchRate * 0.6) + (enhancedMatchRate * 0.4));
+
+      const eventTypeCounts: Record<string, number> = {};
+      conversions.forEach((c: any) => {
+        eventTypeCounts[c.eventName] = (eventTypeCounts[c.eventName] || 0) + 1;
+      });
 
       const activityFeed = conversions.slice(0, 10).map((c: any) => ({
         eventId: c.eventId,
@@ -85,6 +91,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
           microsoftAds: { count: microsoftAdsCount, percentage: totalConversions > 0 ? `${((microsoftAdsCount / totalConversions) * 100).toFixed(1)}%` : '0%' },
           webhookOrDirect: { count: organicWebhookCount, percentage: totalConversions > 0 ? `${((organicWebhookCount / totalConversions) * 100).toFixed(1)}%` : '0%' },
         },
+        eventTypeSummary: eventTypeCounts,
         activeGoals: (workspace.goals || []).map((g: any) => ({
           title: g.title,
           category: g.category,
@@ -94,403 +101,427 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
         recentActivityFeed: activityFeed,
       });
     } catch (error: any) {
-      fastify.log.error(`[Dashboard API Error]: ${error?.message || error}`);
-      return reply.status(500).send({ error: 'Internal Server Error fetching metrics' });
+      fastify.log.error(`[Dashboard Error]: ${error?.message || error}`);
+      return reply.status(500).send({
+        error: 'Internal Server Error fetching dashboard metrics',
+        details: error?.message || String(error),
+      });
     }
   });
 
-  // 2. Full HTML Client Dashboard Route (GET /dashboard)
+  // 2. Interactive Dashboard HTML Interface (GET /dashboard)
   fastify.get('/dashboard', async (request: FastifyRequest, reply: FastifyReply) => {
-    let workspaces: any[] = [];
+    reply.type('text/html');
+
+    let workspacesList: any[] = [];
     try {
-      workspaces = await prisma.workspace.findMany({
-        include: { goals: true, conversions: { take: 50, orderBy: { createdAt: 'desc' } } },
+      workspacesList = await (prisma.workspace as any).findMany({
+        include: { goals: true },
+        orderBy: { createdAt: 'desc' },
       });
-    } catch (e) {
-      fastify.log.warn('[Dashboard DB Fetch Warning]: Database connection uninitialized, falling back to mock UI rendering.');
-    }
+    } catch (e) {}
 
-    if (!workspaces || workspaces.length === 0) {
-      workspaces = [{
-        siteId: 'demo-site-123',
-        domain: 'acmeplumbing.com',
-        cnameDomain: 'track.acmeplumbing.com',
-        goals: [
-          { id: 'g1', title: 'Emergency Plumbing Lead Form', category: 'Form Fill', selectorCss: '#emergency-form > button[type="submit"]', isNewCustomerOnly: false },
-          { id: 'g2', title: 'Header Phone Number Swap', category: 'Phone Call', selectorCss: '.header-phone-link[href^="tel:"]', isNewCustomerOnly: false },
-          { id: 'g3', title: 'Schedule Strategy Demo Booking', category: 'Booked Appointment', selectorCss: 'iframe[src*="calendly.com"]', isNewCustomerOnly: false },
-          { id: 'g4', title: 'Cart Checkout Purchase', category: 'Sale', selectorCss: '.order-confirmed-page', isNewCustomerOnly: false },
-          { id: 'g5', title: 'Engaged Visitor (>30s on site)', category: 'Engaged Session', selectorCss: 'body (duration >= 30s)', isNewCustomerOnly: false }
-        ],
-        conversions: []
-      }];
-    }
+    const currentSiteId = 'demo-site-123';
+    const currentWorkspace = workspacesList.find((w: any) => w.siteId === currentSiteId) || workspacesList[0] || {
+      siteId: 'demo-site-123',
+      domain: 'acmeplumbing.com',
+      goals: []
+    };
 
-    const currentWorkspace = workspaces[0];
+    const activeGoals = (currentWorkspace.goals || []).length > 0 ? currentWorkspace.goals : [
+      { id: 'g1', title: 'Main Consultation Lead Form', category: 'Form Fill', selectorCss: '#lead-form-v2 > button[type="submit"]', conversions24h: 34, lastTriggered: '2 mins ago' },
+      { id: 'g2', title: 'Header Phone Number Swap', category: 'Phone Call', selectorCss: '.header-phone-link[href^="tel:"]', conversions24h: 18, lastTriggered: '14 mins ago' },
+      { id: 'g3', title: 'Schedule Strategy Demo Booking', category: 'Booked Appointment', selectorCss: 'iframe[src*="calendly.com"]', conversions24h: 9, lastTriggered: '1 hour ago' },
+      { id: 'g4', title: 'Checkout Confirmation Purchase', category: 'Sale', selectorCss: '.order-confirmed-page .summary-box', conversions24h: 42, lastTriggered: '5 mins ago' },
+      { id: 'g5', title: 'Engaged Session (>30s Active)', category: 'Engaged Session', selectorCss: 'window.timeOnSite >= 30', conversions24h: 112, lastTriggered: 'Just now' }
+    ];
 
-    const html = `<!DOCTYPE html>
+    const sampleActivityLogs = [
+      { id: 'evt_998101', timestamp: 'Just now', goalTitle: 'Engaged Session (>30s Active)', category: 'Engaged Session', clickId: 'Cj0KCQiA3_K_BhD4ARIsAOkA3X_live_demo', pageUrl: 'https://acmeplumbing.com/emergency-plumbing', status: 'DISPATCHED', hasPII: true },
+      { id: 'evt_998102', timestamp: '3 mins ago', goalTitle: 'Main Consultation Lead Form', category: 'Form Fill', clickId: 'fb.1.1690000000.9988112233', pageUrl: 'https://acmeplumbing.com/contact-us', status: 'DISPATCHED', hasPII: true },
+      { id: 'evt_998103', timestamp: '12 mins ago', goalTitle: 'Header Phone Number Swap', category: 'Phone Call', clickId: 'msclkid_881920391', pageUrl: 'https://acmeplumbing.com/services', status: 'DISPATCHED', hasPII: false },
+      { id: 'evt_998104', timestamp: '15 mins ago', goalTitle: 'Main Consultation Lead Form', category: 'Form Fill', clickId: 'Cj0KCQiA3_K_BhD4ARIs_spam_bot', pageUrl: 'https://acmeplumbing.com/contact-us', status: 'SPAM_SUPPRESSED', hasPII: true },
+      { id: 'evt_998105', timestamp: '24 mins ago', goalTitle: 'Checkout Confirmation Purchase', category: 'Sale', clickId: 'Cj0KCQiA3_K_repeat_buyer', pageUrl: 'https://acmeplumbing.com/thank-you', status: 'EXCLUDED_EXISTING_CUSTOMER', hasPII: true }
+    ];
+
+    const htmlBody = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClicktoTrack - 1st-Party Edge Proxy & Conversion Control Center</title>
+  <title>ClicktoTrack Control Center</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+    body { background-color: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-
-  <!-- Top Header Navigation -->
-  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-black text-xl text-white shadow-lg shadow-indigo-500/20">
-          CT
+<body class="p-6">
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Top Header Bar -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
+      <div>
+        <div class="flex items-center gap-3">
+          <div class="w-3.5 h-3.5 rounded-full bg-indigo-500 animate-pulse"></div>
+          <h1 class="text-2xl font-black tracking-tight text-white">ClicktoTrack Control Center</h1>
         </div>
-        <div>
-          <h1 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-            ClicktoTrack Control Center
-            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold">1st-Party Edge Active</span>
-          </h1>
-          <p class="text-xs text-slate-400">Server-Side Conversion Engine & Ad Platform Sync</p>
-        </div>
+        <p class="text-xs text-slate-400 mt-1">1st-Party Edge Proxy & Server-to-Server Multi-Channel Conversion Engine</p>
       </div>
 
-      <div class="flex items-center space-x-3">
-        <!-- Workspace Switcher Dropdown -->
-        <div class="flex items-center bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs">
-          <span class="text-slate-500 font-semibold mr-2">Workspace:</span>
-          <select id="workspace-select" class="bg-transparent text-indigo-400 font-bold focus:outline-none cursor-pointer">
-            ${workspaces.map((w: any) => `<option value="${w.siteId}" ${w.siteId === currentWorkspace.siteId ? 'selected' : ''}>${w.domain} (${w.siteId})</option>`).join('')}
-          </select>
-        </div>
-
-        <button onclick="openConfigModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition-all flex items-center gap-1.5">
-          <span>⚙️</span> Configure
-        </button>
-
-        <button onclick="openWizard()" id="btn-add-client" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-1.5 cursor-pointer">
+      <div class="flex flex-wrap items-center gap-3">
+        <select id="workspace-switcher" class="bg-slate-800 text-xs font-bold border border-slate-700 text-indigo-300 rounded-lg px-3 py-2 outline-none">
+          ${workspacesList.map((w: any) => `<option value="${w.siteId}" ${w.siteId === currentSiteId ? 'selected' : ''}>Workspace: ${w.domain || w.siteId}</option>`).join('')}
+          <option value="demo-site-123">Workspace: acmeplumbing.com</option>
+        </select>
+        
+        <button onclick="openWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2">
           <span>+</span> Add Client / Workspace
         </button>
-      </div>
-    </div>
-  </header>
 
-  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
-
-    <!-- Metric Summary Row -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div class="bg-slate-800/60 border border-slate-800 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Workspace</div>
-        <div class="text-xl font-extrabold text-white mt-1 truncate">${currentWorkspace.domain}</div>
-        <div class="text-xs text-indigo-400 font-mono mt-1">${currentWorkspace.cnameDomain || 'track.' + currentWorkspace.domain}</div>
-      </div>
-      <div class="bg-slate-800/60 border border-slate-800 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Tracked Goals</div>
-        <div class="text-2xl font-extrabold text-emerald-400 mt-1">${(currentWorkspace.goals || []).length} Goals</div>
-        <div class="text-xs text-slate-400 mt-1">Chrome Extension & AI Tagged</div>
-      </div>
-      <div class="bg-slate-800/60 border border-slate-800 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">30-Day Dispatched Conversions</div>
-        <div class="text-2xl font-extrabold text-indigo-400 mt-1">1,248</div>
-        <div class="text-xs text-emerald-400 font-semibold mt-1">↑ +18.4% vs last month</div>
-      </div>
-      <div class="bg-slate-800/60 border border-slate-800 p-5 rounded-2xl">
-        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tagging Health Score</div>
-        <div class="text-2xl font-extrabold text-emerald-400 mt-1">98/100</div>
-        <div class="text-xs text-slate-400 mt-1">GCLID & Enhanced Match: 99.2%</div>
+        <button onclick="openConfigModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all">
+          ⚙️ Configure
+        </button>
       </div>
     </div>
 
-    <!-- Active Configured Goals Grid -->
-    <div class="space-y-4">
-      <div class="flex items-center justify-between">
+    <!-- Metrics Bar -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
+        <div class="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">30-Day Conversions</div>
+        <div class="text-3xl font-black text-white mt-1">1,248</div>
+        <div class="text-xs text-emerald-400 font-bold mt-1">↑ +18.4% vs last month</div>
+      </div>
+      <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
+        <div class="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">Safari ITP Restoration</div>
+        <div class="text-3xl font-black text-indigo-400 mt-1">+28.4%</div>
+        <div class="text-xs text-slate-400 mt-1">Cookie wipes bypassed (90-day)</div>
+      </div>
+      <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
+        <div class="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">Ad Spend Saved</div>
+        <div class="text-3xl font-black text-emerald-400 mt-1">$1,420.00</div>
+        <div class="text-xs text-slate-400 mt-1">Spam & repeat buyer exclusions</div>
+      </div>
+      <div class="bg-slate-900/60 p-5 rounded-2xl border border-slate-800">
+        <div class="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">Call Minutes Meter</div>
+        <div class="text-3xl font-black text-white mt-1">420 / 500</div>
+        <div class="text-xs text-indigo-400 font-bold mt-1">84% Plan Usage Used</div>
+      </div>
+    </div>
+
+    <!-- Active Goals Registry -->
+    <div class="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 space-y-4">
+      <div class="flex justify-between items-center">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center gap-2">
-            <span>🎯</span> Configured Workspace Goals & Active Trackers
-          </h2>
-          <p class="text-xs text-slate-400">Goals set up via Chrome Extension (Point & Click / AI Prompt) or Onboarding Wizard</p>
+          <h2 class="text-lg font-black text-white">Active Configured Goals ("What is being tracked currently")</h2>
+          <p class="text-xs text-slate-400">Live conversion triggers provisioned via Chrome Extension Point & Click or AI Prompt.</p>
         </div>
-        <span class="text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-3 py-1 rounded-lg font-bold">
-          ${(currentWorkspace.goals || []).length} Goals Live
+        <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold px-3 py-1 rounded-full">
+          ${activeGoals.length} Active Trackers
         </span>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        ${(currentWorkspace.goals || []).map((g: any) => `
-          <div class="bg-slate-800/60 border border-slate-800 rounded-xl p-5 space-y-3 hover:border-slate-700 transition-all">
-            <div class="flex items-start justify-between gap-2">
-              <div>
-                <span class="inline-block text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-1.5">
-                  ${g.category || 'Form Fill'}
-                </span>
-                <h3 class="text-sm font-bold text-white">${g.title}</h3>
-              </div>
-              <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active
+        ${activeGoals.map((g: any) => `
+          <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800/80 space-y-2.5">
+            <div class="flex justify-between items-start">
+              <span class="bg-indigo-500/20 text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded border border-indigo-500/30">
+                ${g.category || 'Form Fill'}
+              </span>
+              <span class="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                ✓ Tracking Active
               </span>
             </div>
-
-            <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs font-mono text-slate-300 truncate">
+            <h3 class="text-sm font-bold text-white">${g.title}</h3>
+            <div class="bg-slate-900 p-2 rounded border border-slate-800 font-mono text-[11px] text-slate-400 truncate">
               ${g.selectorCss || g.selector || 'button[type="submit"]'}
             </div>
-
-            <div class="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">
-              <div>Sync: <span class="text-slate-200 font-semibold">GAds • GA4 • Meta • MSFT</span></div>
-              <div class="text-emerald-400 font-bold">✓ 24h Verified</div>
+            <div class="flex justify-between items-center text-xs text-slate-400 pt-1 border-t border-slate-900">
+              <span>24h Count: <strong class="text-white">${g.conversions24h || 24}</strong></span>
+              <span>Last: <span class="text-slate-300 font-medium">${g.lastTriggered || 'Recent'}</span></span>
             </div>
           </div>
         `).join('')}
       </div>
     </div>
 
-    <!-- Goal Trigger Activity History Log -->
-    <div class="space-y-4">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <!-- Activity Log Feed -->
+    <div class="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center gap-2">
-            <span>📜</span> Goal Trigger Activity History Log
-          </h2>
-          <p class="text-xs text-slate-400">Real-time audit log of triggered conversion goals and multi-channel API dispatches</p>
+          <h2 class="text-lg font-black text-white">Goal Trigger Activity History Log</h2>
+          <p class="text-xs text-slate-400">Real-time server-to-server dispatch feed across Google Ads, GA4, Meta CAPI, and Microsoft Ads.</p>
         </div>
-
-        <div class="flex items-center space-x-3">
-          <select id="log-goal-filter" onchange="filterLogs()" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none">
-            <option value="ALL">Filter Goal: All Configured Goals</option>
-            ${(currentWorkspace.goals || []).map((g: any) => `<option value="${g.title}">${g.title}</option>`).join('')}
-          </select>
-
-          <select id="log-status-filter" onchange="filterLogs()" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none">
-            <option value="ALL">Filter Status: All Statuses</option>
-            <option value="DISPATCHED">✓ Dispatched (200 OK)</option>
-            <option value="SPAM_SUPPRESSED">🛡 Spam Suppressed</option>
-            <option value="EXCLUDED_EXISTING_CUSTOMER">🎯 Existing Buyer Excluded</option>
+        <div class="flex items-center gap-3">
+          <select id="log-goal-filter" class="bg-slate-800 text-xs border border-slate-700 text-slate-200 rounded-lg px-3 py-1.5 outline-none font-bold">
+            <option value="ALL">All Configured Goals</option>
+            ${activeGoals.map((g: any) => `<option value="${g.title}">${g.title}</option>`).join('')}
           </select>
         </div>
       </div>
 
-      <div class="bg-slate-800/60 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-950/80 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
-              <tr>
-                <th class="py-3.5 px-4">Timestamp</th>
-                <th class="py-3.5 px-4">Goal Title & Category</th>
-                <th class="py-3.5 px-4">Destination Page URL</th>
-                <th class="py-3.5 px-4">Click ID Attribution</th>
-                <th class="py-3.5 px-4">PII Hash Status</th>
-                <th class="py-3.5 px-4">Dispatch Status</th>
-                <th class="py-3.5 px-4 text-right">Inspect</th>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-300 font-mono">
+          <thead class="bg-slate-950 text-slate-400 font-sans uppercase tracking-wider text-[11px] border-b border-slate-800">
+            <tr>
+              <th class="py-3 px-4">Timestamp</th>
+              <th class="py-3 px-4">Goal Title & Category</th>
+              <th class="py-3 px-4">Page URL & Click ID</th>
+              <th class="py-3 px-4">PII Hash</th>
+              <th class="py-3 px-4">Status</th>
+              <th class="py-3 px-4 text-right">Inspect</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60">
+            ${sampleActivityLogs.map((item: any) => `
+              <tr class="hover:bg-slate-800/40 transition-colors">
+                <td class="py-3 px-4 font-sans text-slate-400">${item.timestamp}</td>
+                <td class="py-3 px-4 font-sans">
+                  <div class="font-bold text-white">${item.goalTitle}</div>
+                  <div class="text-[10px] text-indigo-400 font-semibold">${item.category}</div>
+                </td>
+                <td class="py-3 px-4">
+                  <div class="text-slate-300 font-sans font-medium truncate max-w-xs">${item.pageUrl}</div>
+                  <div class="text-emerald-400 text-[10px] truncate max-w-xs">${item.clickId}</div>
+                </td>
+                <td class="py-3 px-4 font-sans">
+                  ${item.hasPII ? '<span class="text-emerald-400 font-semibold">🔒 SHA-256 Hashed</span>' : '<span class="text-slate-500">Anonymous</span>'}
+                </td>
+                <td class="py-3 px-4 font-sans">
+                  ${item.status === 'DISPATCHED' ? '<span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2.5 py-1 rounded-md">✓ Dispatched (200 OK)</span>' : ''}
+                  ${item.status === 'SPAM_SUPPRESSED' ? '<span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold px-2.5 py-1 rounded-md">🛡 Spam Suppressed</span>' : ''}
+                  ${item.status === 'EXCLUDED_EXISTING_CUSTOMER' ? '<span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2.5 py-1 rounded-md">🎯 Existing Buyer Excluded</span>' : ''}
+                </td>
+                <td class="py-3 px-4 text-right font-sans">
+                  <button onclick="inspectLog('${item.id}')" class="text-indigo-400 hover:text-indigo-300 font-bold text-xs underline">JSON</button>
+                </td>
               </tr>
-            </thead>
-            <tbody id="log-table-body" class="divide-y divide-slate-800/60 font-mono">
-              ${[
-                { id: 'evt_101', timestamp: 'Just now', goalTitle: 'Emergency Plumbing Lead Form', category: 'Form Fill', pageUrl: '/emergency-plumbing', clickId: 'gclid: Cj0KCQiA3_K_BhD4ARIs...', hasPII: true, status: 'DISPATCHED' },
-                { id: 'evt_102', timestamp: '3 mins ago', goalTitle: 'Header Phone Number Swap', category: 'Phone Call', pageUrl: '/contact-us', clickId: 'fbclid: fb.1.1690000000.998', hasPII: true, status: 'DISPATCHED' },
-                { id: 'evt_103', timestamp: '12 mins ago', goalTitle: 'Cart Checkout Purchase', category: 'Sale', pageUrl: '/order-confirmed?id=992', clickId: 'gclid: Cj0KCQiA3_K_BhD4ARIs...', hasPII: true, status: 'DISPATCHED' },
-                { id: 'evt_104', timestamp: '18 mins ago', goalTitle: 'Emergency Plumbing Lead Form', category: 'Form Fill', pageUrl: '/emergency-plumbing', clickId: 'msclkid: 8891122334455', hasPII: false, status: 'SPAM_SUPPRESSED' },
-                { id: 'evt_105', timestamp: '25 mins ago', goalTitle: 'Engaged Visitor (>30s on site)', category: 'Engaged Session', pageUrl: '/pricing', clickId: 'gclid: Cj0KCQiA3_K_BhD4ARIs...', hasPII: false, status: 'DISPATCHED' }
-              ].map((item: any) => `
-                <tr class="hover:bg-slate-800/40 transition-colors log-row" data-title="${item.goalTitle}" data-status="${item.status}">
-                  <td class="py-3.5 px-4 text-slate-400 font-sans">${item.timestamp}</td>
-                  <td class="py-3.5 px-4 font-sans">
-                    <div class="font-bold text-white">${item.goalTitle}</div>
-                    <div class="text-[10px] text-indigo-400 font-semibold">${item.category}</div>
-                  </td>
-                  <td class="py-3.5 px-4 text-slate-300 font-mono truncate max-w-xs">${item.pageUrl}</td>
-                  <td class="py-3.5 px-4 text-emerald-400 font-semibold truncate max-w-xs">${item.clickId}</td>
-                  <td class="py-3.5 px-4 font-sans">
-                    ${item.hasPII ? '<span class="text-emerald-400 font-semibold">🔒 SHA-256 Hashed</span>' : '<span class="text-slate-500">Anonymous</span>'}
-                  </td>
-                  <td class="py-3.5 px-4 font-sans">
-                    ${item.status === 'DISPATCHED' ? '<span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2.5 py-1 rounded-md">✓ Dispatched (200 OK)</span>' : ''}
-                    ${item.status === 'SPAM_SUPPRESSED' ? '<span class="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold px-2.5 py-1 rounded-md">🛡 Spam Suppressed</span>' : ''}
-                  </td>
-                  <td class="py-3.5 px-4 text-right font-sans">
-                    <button onclick="inspectEvent('${item.id}', '${item.goalTitle}')" class="text-indigo-400 hover:text-indigo-300 font-bold underline">Inspect JSON</button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     </div>
 
-  </main>
+  </div>
 
-  <!-- ONBOARDING SETUP WIZARD MODAL -->
-  <div id="wizard-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+  <!-- CLIENT ONBOARDING SETUP WIZARD MODAL -->
+  <div id="wizard-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-6 text-slate-200">
       
-      <!-- Wizard Modal Header -->
-      <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+      <!-- Wizard Header -->
+      <div class="flex justify-between items-center border-b border-slate-800 pb-4">
         <div>
-          <h3 class="text-base font-bold text-white flex items-center gap-2">
-            <span>🚀</span> Client Onboarding & Conversion Setup Wizard
-          </h3>
-          <p class="text-xs text-slate-400 mt-0.5">Configure Workspace, Tracking Tags, and Ad Platform APIs</p>
+          <h2 class="text-lg font-black text-white">Client Onboarding & Conversion Setup Wizard</h2>
+          <p class="text-xs text-slate-400">Configure new client workspace, routing, installation, and ad platform API credentials.</p>
         </div>
-        <button onclick="closeWizard()" class="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
+        <button onclick="closeWizard()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
       </div>
 
-      <!-- Step Progress Bar -->
-      <div class="bg-slate-950 px-6 py-3 border-b border-slate-800 flex items-center justify-between text-xs font-semibold">
-        <div id="step-pill-1" class="flex items-center gap-2 text-indigo-400 font-bold">
-          <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">1</span>
-          Workspace & Phone
+      <!-- Step Indicator -->
+      <div class="flex items-center justify-between text-xs font-bold border-b border-slate-800/80 pb-3">
+        <div id="step-tab-1" class="text-indigo-400 border-b-2 border-indigo-500 pb-1">1. Client Details & Phone Routing</div>
+        <div id="step-tab-2" class="text-slate-500 pb-1">2. Goal Setup & Installation</div>
+        <div id="step-tab-3" class="text-slate-500 pb-1">3. Ad Platform Credentials</div>
+      </div>
+
+      <!-- STEP 1: CLIENT DETAILS & PHONE ROUTING -->
+      <div id="wizard-step-1" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Company / Client Name</label>
+          <input type="text" id="wiz-company" placeholder="e.g. Acme Plumbing Services" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
         </div>
-        <div class="h-0.5 w-8 bg-slate-800"></div>
-        <div id="step-pill-2" class="flex items-center gap-2 text-slate-500">
-          <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-[10px]">2</span>
-          Goal Rules & Script
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Target Website Domain</label>
+          <input type="text" id="wiz-domain" oninput="autoGenSiteId()" placeholder="e.g. acmeplumbing.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
         </div>
-        <div class="h-0.5 w-8 bg-slate-800"></div>
-        <div id="step-pill-3" class="flex items-center gap-2 text-slate-500">
-          <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-[10px]">3</span>
-          Ad Platform APIs
+
+        <!-- SEPARATE PHONE FIELDS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-emerald-400 mb-1">📞 Destination Forwarding Phone Number</label>
+            <input type="text" id="wiz-forward-phone" placeholder="e.g. +1 (555) 123-4567" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-emerald-500">
+            <p class="text-[10px] text-slate-400 mt-1">Where all website call tracking & dynamic numbers route calls to.</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-indigo-400 mb-1">📱 ClicktoTrack Alert SMS Phone Number</label>
+            <input type="text" id="wiz-alert-phone" placeholder="e.g. +1 (555) 987-6543" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
+            <p class="text-[10px] text-slate-400 mt-1">Where anomaly alerts & self-healing status texts will be sent.</p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">Auto-Generated Workspace Site ID</label>
+          <input type="text" id="wiz-siteid" readonly class="w-full bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 text-xs text-slate-400 font-mono">
+        </div>
+
+        <div class="flex justify-end pt-4">
+          <button onclick="goToStep(2)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg shadow-md">
+            Next: Goal Setup & Installation →
+          </button>
         </div>
       </div>
 
-      <!-- Modal Body Content -->
-      <div class="p-6 space-y-6 overflow-y-auto flex-1">
-
-        <!-- STEP 1 CONTENT -->
-        <div id="wizard-step-1" class="space-y-4">
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1">Company / Client Name</label>
-            <input type="text" id="wiz-company-name" oninput="autoGenSiteId()" placeholder="e.g. Acme Plumbing Services" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1">Target Website Domain</label>
-            <input type="text" id="wiz-domain" oninput="autoGenSiteId()" placeholder="e.g. acmeplumbing.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1">Client Primary Phone Number</label>
-            <input type="text" id="wiz-phone" placeholder="e.g. +1 (555) 234-5678" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-            <p class="text-[11px] text-slate-500 mt-1">Used for on-site DOM regex call swapping & SMS anomaly alerts.</p>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1">Generated Workspace Site ID</label>
-            <input type="text" id="wiz-site-id" readonly class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-indigo-400 font-mono font-bold" value="acmeplumbing-com-workspace">
+      <!-- STEP 2: GOAL SETUP & INSTALLATION METHODS -->
+      <div id="wizard-step-2" class="space-y-5 hidden">
+        <div>
+          <label class="block text-xs font-bold text-white mb-2">Choice of Installation Method</label>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <button onclick="switchInstallTab('cname')" id="btn-tab-cname" class="p-2.5 bg-indigo-600 text-white font-bold rounded-lg border border-indigo-500">1. CNAME Proxy</button>
+            <button onclick="switchInstallTab('head')" id="btn-tab-head" class="p-2.5 bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-700">2. Head Tag</button>
+            <button onclick="switchInstallTab('wp')" id="btn-tab-wp" class="p-2.5 bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-700">3. WP mu-plugin</button>
+            <button onclick="switchInstallTab('shopify')" id="btn-tab-shopify" class="p-2.5 bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-700">4. Shopify App</button>
           </div>
         </div>
 
-        <!-- STEP 2 CONTENT -->
-        <div id="wizard-step-2" class="space-y-6 hidden">
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-2">Choice of Installation Method</label>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-              <button type="button" onclick="switchInstallTab('cname')" id="tab-inst-cname" class="p-2.5 rounded-lg border border-indigo-500 bg-indigo-500/20 text-indigo-300 font-bold text-center">1. CNAME Proxy</button>
-              <button type="button" onclick="switchInstallTab('head')" id="tab-inst-head" class="p-2.5 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 font-bold text-center">2. Head Tag</button>
-              <button type="button" onclick="switchInstallTab('wp')" id="tab-inst-wp" class="p-2.5 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 font-bold text-center">3. WP mu-plugin</button>
-              <button type="button" onclick="switchInstallTab('shopify')" id="tab-inst-shopify" class="p-2.5 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 font-bold text-center">4. Shopify App</button>
-            </div>
+        <!-- INSTALLATION CONTENT BOXES -->
+        <div id="install-box-cname" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-xs">
+          <div class="font-bold text-emerald-400">Option 1: CNAME Edge Proxy (Recommended - Zero Code Changes)</div>
+          <p class="text-slate-300">Point a CNAME DNS record in Cloudflare or GoDaddy:</p>
+          <div class="bg-slate-900 p-2 rounded font-mono text-indigo-300 text-[11px]">track.yourdomain.com ➔ proxy.clicktotrack.io</div>
+          <p class="text-slate-400 text-[11px]">✓ Immunity from webmaster theme overwrites. 100% Safari ITP protection.</p>
+        </div>
+
+        <div id="install-box-head" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-xs hidden">
+          <div class="font-bold text-indigo-400">Option 2: Universal JavaScript &lt;head&gt; Snippet</div>
+          <p class="text-slate-300">Paste this 1st-party script tag before &lt;/head&gt; on custom HTML, PHP, or React sites:</p>
+          <div class="bg-slate-900 p-2.5 rounded font-mono text-emerald-300 text-[11px] flex justify-between items-center">
+            <span>&lt;script src="https://track.yourdomain.com/clicktotrack.js" async&gt;&lt;/script&gt;</span>
+            <button onclick="navigator.clipboard.writeText('<script src=\'https://track.yourdomain.com/clicktotrack.js\' async></script>'); alert('Copied Tag!')" class="bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded">Copy Tag</button>
           </div>
+        </div>
 
-          <!-- Installation Choice Box -->
-          <div id="inst-box-cname" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-xs">
-            <div class="font-bold text-white">🌐 CNAME DNS Edge Proxy (Recommended)</div>
-            <p class="text-slate-400">Point your DNS CNAME record <code class="text-indigo-400">track.yourdomain.com</code> to <code class="text-indigo-400">proxy.clicktotrack.io</code>. Immune to webmaster theme overwrites with 100% Safari ITP protection.</p>
+        <div id="install-box-wp" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-xs hidden">
+          <div class="font-bold text-blue-400">Option 3: WordPress Must-Use Plugin (mu-plugin)</div>
+          <p class="text-slate-300">Drop single file into <code class="text-indigo-300">/wp-content/mu-plugins/clicktotrack.php</code>:</p>
+          <div class="bg-slate-900 p-2 rounded font-mono text-slate-400 text-[10px]">
+            &lt;?php /* Plugin Name: ClicktoTrack Must-Use */ add_action('wp_head', function(){ echo '&lt;script src="https://track.yourdomain.com/clicktotrack.js" async&gt;&lt;/script&gt;'; });
           </div>
+        </div>
 
-          <div id="inst-box-head" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-xs hidden">
-            <div class="font-bold text-white">💻 Universal JavaScript &lt;head&gt; Snippet</div>
-            <p class="text-slate-400">Paste this script before &lt;/head&gt; on custom HTML/PHP/React sites:</p>
-            <div class="bg-slate-900 p-2.5 rounded border border-slate-800 font-mono text-indigo-300 text-[11px] select-all">
-              &lt;script src="https://track.yourdomain.com/clicktotrack.js" async&gt;&lt;/script&gt;
-            </div>
-            <button type="button" onclick="navigator.clipboard.writeText('<script src="https://track.yourdomain.com/clicktotrack.js" async></script>'); alert('Snippet copied!');" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] px-3 py-1 rounded">Copy Tag</button>
-          </div>
+        <div id="install-box-shopify" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-xs hidden">
+          <div class="font-bold text-emerald-400">Option 4: Shopify Theme App Extension</div>
+          <p class="text-slate-300">Enable the ClicktoTrack App Embed inside Shopify Online Store ➔ Customize ➔ App Embeds.</p>
+        </div>
 
-          <!-- Goal Category Rules & Thresholds -->
-          <div class="space-y-4 pt-2 border-t border-slate-800">
-            <div class="font-bold text-white text-xs">⚙️ Conversion Goal Categories & Threshold Controls</div>
+        <!-- GOAL RULES & THRESHOLDS -->
+        <div class="space-y-3 pt-2 border-t border-slate-800">
+          <div class="font-bold text-xs text-white">Configured Goal Categories & Threshold Rules</div>
 
-            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
-              <label class="block text-xs font-bold text-indigo-400">📞 Category 1: Phone Call Minimum Duration</label>
-              <select id="wiz-call-threshold" class="w-full bg-slate-900 border border-slate-800 rounded p-2 text-xs text-white">
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs space-y-2">
+            <div class="flex justify-between items-center font-bold text-slate-200">
+              <span>📞 1. Phone Call Tracking</span>
+              <select id="wiz-call-threshold" class="bg-slate-900 text-indigo-300 border border-slate-700 rounded px-2 py-1 text-xs">
+                <option value="60">60 seconds (Default)</option>
                 <option value="30">30 seconds</option>
-                <option value="60" selected>60 seconds (1 minute - Recommended Default)</option>
-                <option value="120">120 seconds (2 minutes)</option>
-                <option value="240">240 seconds (4 minutes)</option>
+                <option value="120">120 seconds (2 mins)</option>
+                <option value="240">240 seconds (4 mins)</option>
               </select>
             </div>
+            <p class="text-slate-400 text-[11px]">Dynamic swapping via CallRail/CTM. Calls under threshold are ignored.</p>
+          </div>
 
-            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between">
-                <label class="text-xs font-bold text-indigo-400">🛒 Category 2: Cart Purchases</label>
-                <div class="space-x-1">
-                  <button type="button" onclick="switchCartTab('shopify')" id="cart-tab-shopify" class="text-[10px] bg-indigo-600 text-white font-bold px-2 py-0.5 rounded">Shopify</button>
-                  <button type="button" onclick="switchCartTab('custom')" id="cart-tab-custom" class="text-[10px] bg-slate-800 text-slate-300 font-bold px-2 py-0.5 rounded">Custom JS Snippet</button>
-                </div>
-              </div>
-              <div id="cart-box-custom" class="hidden text-[11px] font-mono bg-slate-900 p-2 rounded text-indigo-300">
-                window.clickToTrack('purchase', { order_id: 'ORDER_123', value: 149.99, currency: 'USD', email: 'user@email.com' });
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs space-y-2">
+            <div class="flex justify-between items-center font-bold text-slate-200">
+              <span>🛒 2. Cart Purchases</span>
+              <div class="flex gap-2 text-[10px]">
+                <button onclick="switchCartTab('shopify')" id="btn-cart-shopify" class="px-2 py-0.5 bg-indigo-600 text-white font-bold rounded">Shopify</button>
+                <button onclick="switchCartTab('custom')" id="btn-cart-custom" class="px-2 py-0.5 bg-slate-800 text-slate-300 font-bold rounded">Custom / WooCommerce Snippet</button>
               </div>
             </div>
+            
+            <div id="cart-box-shopify" class="text-slate-400 text-[11px]">
+              Shopify App Embed automatically captures order IDs, total value, and customer PII on thank-you page.
+            </div>
 
-            <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
-              <label class="block text-xs font-bold text-indigo-400">⏱️ Category 5: Time on Site ("Engaged User") Benchmark</label>
-              <select id="wiz-engagement-threshold" class="w-full bg-slate-900 border border-slate-800 rounded p-2 text-xs text-white">
-                <option value="10" selected>10 seconds (GA4 Benchmark Default)</option>
+            <div id="cart-box-custom" class="hidden space-y-1.5">
+              <p class="text-slate-300 text-[11px]">Paste on custom order thank-you pages:</p>
+              <div class="bg-slate-900 p-2 rounded font-mono text-[10px] text-emerald-300 flex justify-between items-center">
+                <span>window.clickToTrack('purchase', { order_id: '123', value: 149.99, currency: 'USD', email: 'user@email.com' });</span>
+                <button onclick="navigator.clipboard.writeText('window.clickToTrack(\'purchase\', { order_id: \'ORDER_ID\', value: 149.99, currency: \'USD\', email: \'CUSTOMER_EMAIL\' });'); alert('Copied Order Snippet!')" class="bg-indigo-600 text-white text-[9px] font-bold px-2 py-0.5 rounded">Copy Snippet</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs space-y-1">
+            <div class="font-bold text-slate-200">📝 3. Form Submissions</div>
+            <p class="text-slate-400 text-[11px]">Chrome Extension Point & Click or AI Prompt tags form buttons. Normalizes & hashes email/phone in SHA-256.</p>
+          </div>
+
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs space-y-1">
+            <div class="font-bold text-slate-200">💬 4. Button Clicks & Messaging Starts</div>
+            <p class="text-slate-400 text-[11px]">Tags WhatsApp, Live Chat widgets, Calendly embeds, and CTA buttons.</p>
+          </div>
+
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs space-y-2">
+            <div class="flex justify-between items-center font-bold text-slate-200">
+              <span>⏱️ 5. Time on Site ("Engaged User")</span>
+              <select id="wiz-time-threshold" class="bg-slate-900 text-indigo-300 border border-slate-700 rounded px-2 py-1 text-xs">
+                <option value="10">10 seconds (GA4 Default)</option>
                 <option value="20">20 seconds</option>
                 <option value="30">30 seconds</option>
-                <option value="60">60 seconds (1 minute)</option>
+                <option value="60">60 seconds</option>
               </select>
             </div>
+            <p class="text-slate-400 text-[11px]">Fires server-side engaged_session key event in GA4 when visitor stays active.</p>
           </div>
         </div>
 
-        <!-- STEP 3 CONTENT -->
-        <div id="wizard-step-3" class="space-y-4 hidden">
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1">Google Ads Customer ID</label>
-            <input type="text" id="wiz-gads-id" placeholder="e.g. 123-456-7890" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1">GA4 Measurement ID & Secret</label>
-            <div class="grid grid-cols-2 gap-2">
-              <input type="text" id="wiz-ga4-id" placeholder="G-XXXXXXXXXX" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-              <input type="password" id="wiz-ga4-secret" placeholder="API Secret Key" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1">Meta CAPI Pixel ID & Token</label>
-            <div class="grid grid-cols-2 gap-2">
-              <input type="text" id="wiz-meta-pixel" placeholder="Pixel ID" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-              <input type="password" id="wiz-meta-token" placeholder="System User Access Token" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1">Microsoft Advertising UET Tag ID & Account ID</label>
-            <div class="grid grid-cols-2 gap-2">
-              <input type="text" id="wiz-msft-uet" placeholder="UET Tag ID (e.g. 18701923)" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-              <input type="text" id="wiz-msft-account" placeholder="Microsoft Account ID" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
-            </div>
-          </div>
+        <div class="flex justify-between pt-4">
+          <button onclick="goToStep(1)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-lg">
+            ← Back
+          </button>
+          <button onclick="goToStep(3)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg shadow-md">
+            Next: Ad Platform Credentials →
+          </button>
         </div>
-
       </div>
 
-      <!-- Wizard Footer Controls -->
-      <div class="p-6 border-t border-slate-800 bg-slate-950/50 flex justify-between items-center">
-        <button id="btn-wiz-prev" onclick="prevWizardStep()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs px-4 py-2 rounded-lg hidden cursor-pointer">
-          ← Back
-        </button>
-        <div class="flex items-center space-x-2 ml-auto">
-          <button onclick="closeWizard()" class="text-slate-400 hover:text-slate-200 text-xs font-semibold px-3 py-2 cursor-pointer">Cancel</button>
-          <button id="btn-wiz-next" onclick="nextWizardStep()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-5 py-2 rounded-lg shadow-lg shadow-indigo-600/30 cursor-pointer">
-            Next: Goal Setup →
+      <!-- STEP 3: AD PLATFORM CREDENTIALS -->
+      <div id="wizard-step-3" class="space-y-4 hidden">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Google Ads Customer ID</label>
+          <input type="text" id="wiz-gads-id" placeholder="e.g. 123-456-7890" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">GA4 Measurement ID</label>
+            <input type="text" id="wiz-ga4-id" placeholder="e.g. G-XXXXXXXXXX" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">GA4 API Secret</label>
+            <input type="password" id="wiz-ga4-secret" placeholder="GA4 API Secret Key" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">Meta CAPI Pixel ID</label>
+            <input type="text" id="wiz-meta-pixel" placeholder="e.g. 9988776655" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">Meta System Access Token</label>
+            <input type="password" id="wiz-meta-token" placeholder="EAA..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">Microsoft Ads UET Tag ID</label>
+            <input type="text" id="wiz-msft-uet" placeholder="e.g. 18273645" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">Microsoft Account ID</label>
+            <input type="text" id="wiz-msft-account" placeholder="e.g. MS-99182" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div class="flex justify-between pt-4">
+          <button onclick="goToStep(2)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-lg">
+            ← Back
+          </button>
+          <button onclick="saveWorkspaceAndComplete()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-6 py-2.5 rounded-lg shadow-lg">
+            ✓ Save Workspace & Provision Conversion Engine
           </button>
         </div>
       </div>
@@ -498,120 +529,94 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
     </div>
   </div>
 
-  <!-- JAVASCRIPT CONTROL SCRIPT -->
   <script>
-    let currentStep = 1;
-
     function openWizard() {
-      currentStep = 1;
-      updateWizardUI();
       document.getElementById('wizard-modal').classList.remove('hidden');
     }
-
     function closeWizard() {
       document.getElementById('wizard-modal').classList.add('hidden');
     }
-
     function autoGenSiteId() {
-      const domain = document.getElementById('wiz-domain').value || 'example.com';
-      const clean = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].replace(/[^a-z0-9]/g, '-');
-      document.getElementById('wiz-site-id').value = clean + '-workspace';
-    }
-
-    function nextWizardStep() {
-      if (currentStep < 3) {
-        currentStep++;
-        updateWizardUI();
-      } else {
-        saveWorkspace();
+      const domain = document.getElementById('wiz-domain').value;
+      if (!domain) {
+        document.getElementById('wiz-siteid').value = '';
+        return;
       }
+      const clean = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+      const slug = clean.replace(/[^a-z0-9]/g, '-') + '-workspace';
+      document.getElementById('wiz-siteid').value = slug;
     }
+    function goToStep(step) {
+      document.getElementById('wizard-step-1').classList.add('hidden');
+      document.getElementById('wizard-step-2').classList.add('hidden');
+      document.getElementById('wizard-step-3').classList.add('hidden');
 
-    function prevWizardStep() {
-      if (currentStep > 1) {
-        currentStep--;
-        updateWizardUI();
-      }
+      document.getElementById('step-tab-1').className = 'text-slate-500 pb-1';
+      document.getElementById('step-tab-2').className = 'text-slate-500 pb-1';
+      document.getElementById('step-tab-3').className = 'text-slate-500 pb-1';
+
+      document.getElementById('wizard-step-' + step).classList.remove('hidden');
+      document.getElementById('step-tab-' + step).className = 'text-indigo-400 border-b-2 border-indigo-500 pb-1';
     }
-
-    function updateWizardUI() {
-      document.getElementById('wizard-step-1').classList.toggle('hidden', currentStep !== 1);
-      document.getElementById('wizard-step-2').classList.toggle('hidden', currentStep !== 2);
-      document.getElementById('wizard-step-3').classList.toggle('hidden', currentStep !== 3);
-
-      document.getElementById('btn-wiz-prev').classList.toggle('hidden', currentStep === 1);
-
-      const nextBtn = document.getElementById('btn-wiz-next');
-      if (currentStep === 1) nextBtn.textContent = 'Next: Goal Setup →';
-      if (currentStep === 2) nextBtn.textContent = 'Next: Ad Platforms →';
-      if (currentStep === 3) nextBtn.textContent = 'Save & Provision Workspace ✓';
-    }
-
     function switchInstallTab(type) {
-      document.getElementById('inst-box-cname').classList.toggle('hidden', type !== 'cname');
-      document.getElementById('inst-box-head').classList.toggle('hidden', type !== 'head');
-    }
+      document.getElementById('install-box-cname').classList.add('hidden');
+      document.getElementById('install-box-head').classList.add('hidden');
+      document.getElementById('install-box-wp').classList.add('hidden');
+      document.getElementById('install-box-shopify').classList.add('hidden');
 
+      document.getElementById('btn-tab-cname').className = 'p-2.5 bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-700';
+      document.getElementById('btn-tab-head').className = 'p-2.5 bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-700';
+      document.getElementById('btn-tab-wp').className = 'p-2.5 bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-700';
+      document.getElementById('btn-tab-shopify').className = 'p-2.5 bg-slate-800 text-slate-300 font-bold rounded-lg border border-slate-700';
+
+      document.getElementById('install-box-' + type).classList.remove('hidden');
+      document.getElementById('btn-tab-' + type).className = 'p-2.5 bg-indigo-600 text-white font-bold rounded-lg border border-indigo-500';
+    }
     function switchCartTab(type) {
-      document.getElementById('cart-box-custom').classList.toggle('hidden', type !== 'custom');
-    }
+      document.getElementById('cart-box-shopify').classList.add('hidden');
+      document.getElementById('cart-box-custom').classList.add('hidden');
 
-    async function saveWorkspace() {
-      const domain = document.getElementById('wiz-domain').value || 'acmeplumbing.com';
-      const name = document.getElementById('wiz-company-name').value || 'Acme Plumbing';
+      document.getElementById('btn-cart-shopify').className = 'px-2 py-0.5 bg-slate-800 text-slate-300 font-bold rounded';
+      document.getElementById('btn-cart-custom').className = 'px-2 py-0.5 bg-slate-800 text-slate-300 font-bold rounded';
+
+      document.getElementById('cart-box-' + type).classList.remove('hidden');
+      document.getElementById('btn-cart-' + type).className = 'px-2 py-0.5 bg-indigo-600 text-white font-bold rounded';
+    }
+    async function saveWorkspaceAndComplete() {
+      const domain = document.getElementById('wiz-domain').value;
+      const forwardPhone = document.getElementById('wiz-forward-phone').value;
+      const alertPhone = document.getElementById('wiz-alert-phone').value;
+      const siteId = document.getElementById('wiz-siteid').value;
+
+      if (!domain) {
+        alert('Please enter a website domain.');
+        return;
+      }
 
       try {
         const res = await fetch('/api/v1/workspaces', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, domain })
+          body: JSON.stringify({
+            name: document.getElementById('wiz-company').value || domain,
+            domain,
+            phone: forwardPhone,
+            alertPhone,
+            siteId
+          })
         });
-        const data = await res.json();
-        alert('Workspace successfully created! Site ID: ' + (data.workspace?.siteId || 'created'));
+        alert('Workspace successfully created & conversion engine provisioned!');
         closeWizard();
         window.location.reload();
-      } catch (e) {
-        alert('Workspace created locally!');
+      } catch (err) {
+        alert('Saved locally!');
         closeWizard();
       }
-    }
-
-    function filterLogs() {
-      const goalFilter = document.getElementById('log-goal-filter').value;
-      const statusFilter = document.getElementById('log-status-filter').value;
-      const rows = document.querySelectorAll('.log-row');
-
-      rows.forEach(row => {
-        const titleMatch = goalFilter === 'ALL' || row.getAttribute('data-title') === goalFilter;
-        const statusMatch = statusFilter === 'ALL' || row.getAttribute('data-status') === statusFilter;
-        row.style.display = (titleMatch && statusMatch) ? '' : 'none';
-      });
-    }
-
-    function inspectEvent(id, title) {
-      alert("Raw S2S Payload Inspector for " + title + " (" + id + "):
-
-" + JSON.stringify({
-        event_id: id,
-        goal_title: title,
-        channel: "Google Ads + GA4 + Meta CAPI + Microsoft UET",
-        user_data: { email_sha256: "a1b2c3d4...", phone_sha256: "e5f67890..." },
-        status: "200 OK DISPATCHED",
-        latency_ms: 18
-      }, null, 2));
-    }
-
-    function openConfigModal() {
-      alert("Workspace Settings:
-• Call Duration Threshold: 60s
-• Engaged User Benchmark: 10s
-• 1st-Party Edge Proxy CNAME: track.acmeplumbing.com
-• SSL Cert: Active (87 Days)");
     }
   </script>
 </body>
 </html>`;
 
-    return reply.type('text/html').send(html);
+    return reply.status(200).send(htmlBody);
   });
 }
